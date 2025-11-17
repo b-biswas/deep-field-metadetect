@@ -375,6 +375,7 @@ def watershed_from_peaks(
         Array of peak positions (y, x) of shape (n_peaks, 2)
     mask : jnp.ndarray
         Array of masked pixels.
+        Pixels with non-zero masked values are masked.
     max_iterations : int
         Maximum iterations for watershed algorithm
 
