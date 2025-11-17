@@ -218,3 +218,194 @@ def detect_galaxies(
     )
 
     return peak_positions, refined_positions, border_flags
+
+
+@partial(jax.jit, static_argnames=["max_iterations"])
+def watershed_segmentation(
+    image: jnp.ndarray,
+    markers: jnp.ndarray,
+    mask: jnp.ndarray = None,
+    max_iterations: int = 30,
+) -> jnp.ndarray:
+    """
+    JAX implementation of watershed segmentation algorithm.
+
+    Parameters:
+    -----------
+    image : jnp.ndarray
+        2D input image (typically distance transform or inverted intensity)
+    markers : jnp.ndarray
+        2D array of initial markers (labeled regions) where positive values
+        indicate different watershed basins and 0 indicates unmarked pixels
+    mask : jnp.ndarray, optional
+        Binary mask indicating valid pixels for segmentation
+    max_iterations : int
+        Maximum number of iterations for the flooding process
+
+    Returns:
+    --------
+    labels : jnp.ndarray
+        2D segmentation map with same shape as input image
+    """
+    if mask is None:
+        mask = jnp.ones_like(image, dtype=bool)
+
+    labels = markers.copy()
+    height, width = image.shape
+
+    def watershed_step(labels_prev):
+        """Single iteration of watershed flooding"""
+        labels_new = labels_prev.copy()
+
+        def update_pixel(i, j):
+            # Skip if masked out
+            # Note: another option here would be skip if already labeled
+            current_label = labels_prev[i, j]
+            is_valid = mask[i, j]
+
+            def check_neighbors():
+                # Check 4-connected neighbors
+                neighbor_coords = jnp.array(
+                    [[i - 1, j], [i + 1, j], [i, j - 1], [i, j + 1]]
+                )
+
+                in_bounds = (
+                    (neighbor_coords[:, 0] >= 0)
+                    & (neighbor_coords[:, 0] < height)
+                    & (neighbor_coords[:, 1] >= 0)
+                    & (neighbor_coords[:, 1] < width)
+                )
+
+                neighbor_labels = labels_prev[
+                    neighbor_coords[:, 0], neighbor_coords[:, 1]
+                ]
+                neighbor_values = image[neighbor_coords[:, 0], neighbor_coords[:, 1]]
+
+                # Mask for valid (labeled and in-bounds) neighbors
+                valid_mask = in_bounds & (neighbor_labels > 0)
+
+                has_valid = jnp.any(valid_mask)
+
+                def process_valid_neighbors():
+                    # Use large value for invalid neighbors in argmin
+                    masked_values = jnp.where(valid_mask, neighbor_values, jnp.inf)
+                    min_idx = jnp.argmin(masked_values)
+
+                    # Check if current pixel should be flooded
+                    current_value = image[i, j]
+                    min_neighbor_value = neighbor_values[min_idx]
+
+                    # Flood if current value is >= minimum neighbor value
+                    def should_flood():
+                        """Decides when to flood a pixel based on if it is marked"""
+
+                        def unmarked_pixel():
+                            return (current_value + 0.05) >= min_neighbor_value
+
+                        def marked_pixel():
+                            return (current_value) >= min_neighbor_value
+
+                        is_marked = current_label != 0
+
+                        return jax.lax.cond(
+                            is_marked,
+                            marked_pixel,
+                            unmarked_pixel,
+                        )
+
+                    to_flood = should_flood()
+
+                    # leave current value if update is not required
+                    return jax.lax.cond(
+                        to_flood,
+                        lambda: neighbor_labels[min_idx],
+                        lambda: current_label,
+                    )
+
+                # If no valid neighbors, leave current value else process
+                return jax.lax.cond(
+                    has_valid, process_valid_neighbors, lambda: current_label
+                )
+
+            # If pixel is not maked, check for neightbors
+            new_label = jax.lax.cond(is_valid, check_neighbors, lambda: current_label)
+
+            return new_label
+
+        # Vectorized update over all pixels
+        i_coords, j_coords = jnp.meshgrid(
+            jnp.arange(height), jnp.arange(width), indexing="ij"
+        )
+
+        labels_new = jax.vmap(jax.vmap(update_pixel, in_axes=(0, 0)), in_axes=(0, 0))(
+            i_coords, j_coords
+        )
+
+        return labels_new
+
+    # Iterative flooding using scan
+    def scan_fn(labels_current, _):
+        labels_next = watershed_step(labels_current)
+        return labels_next, None
+
+    final_labels, _ = jax.lax.scan(scan_fn, labels, jnp.arange(max_iterations))
+
+    return final_labels
+
+
+@partial(jax.jit, static_argnames=["max_iterations"])
+def watershed_from_peaks(
+    image: jnp.ndarray,
+    peaks: jnp.ndarray,
+    mask: jnp.ndarray = None,
+    max_iterations: int = 30,
+) -> jnp.ndarray:
+    """
+    Perform watershed segmentation using detected peaks as markers.
+
+    Parameters:
+    -----------
+    image : jnp.ndarray
+        2D input image
+    peaks : jnp.ndarray
+        Array of peak positions (y, x) of shape (n_peaks, 2)
+    mask : jnp.ndarray
+        Array of masked pixels.
+    max_iterations : int
+        Maximum iterations for watershed algorithm
+
+    Returns:
+    --------
+    watershed_labels : jnp.ndarray
+        2D segmentation map from watershed algorithm
+    """
+    height, width = image.shape
+
+    distance_image = -image  # Invert so peaks become valleys
+
+    markers = jnp.zeros((height, width), dtype=jnp.int32)
+
+    # Place markers at peak positions
+    def place_marker(i, peak_pos):
+        y, x = peak_pos.astype(jnp.int32)
+        is_valid = (y >= 0) & (y < height) & (x >= 0) & (x < width)
+
+        marker_value = jax.lax.cond(is_valid, lambda: i + 1, lambda: 0)  # Label from 1
+
+        return jax.lax.cond(
+            is_valid, lambda: markers.at[y, x].set(marker_value), lambda: markers
+        )
+
+    # Sequential marker placement
+    for i in range(peaks.shape[0]):
+        markers = place_marker(i, peaks[i])
+
+    # Apply watershed algorithm
+    watershed_labels = watershed_segmentation(
+        distance_image,
+        markers,
+        max_iterations=max_iterations,
+        mask=mask,
+    )
+
+    return watershed_labels
