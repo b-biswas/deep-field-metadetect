@@ -18,6 +18,8 @@ def local_maxima_filter(
         2D Input galaxy field
     window_size : int
         Size of the neighborhood for local maximum detection
+    threshold : float
+        Minimum pixel value (absolute) a central pixel must satisfy
 
     Returns:
     --------
@@ -68,7 +70,7 @@ def peak_finder(
     image : jnp.ndarray
         2D Input galaxy field
     threshold : float
-        Minimum pixel value all pixels in the window must satisfy
+        Minimum pixel value (absolute) a central pixel must satisfy
     window_size : int
         Size of the neighborhood for local maximum detection
     max_objects : int
@@ -188,7 +190,7 @@ def detect_galaxies(
     image : jnp.ndarray
         2D Input galaxy field
     threshold : float
-        Minimum pixel value all pixels in the window must satisfy
+        Minimum pixel value (absolute) a central pixel must satisfy
     window_size : int
         Minimum distance between detected peaks
     refine_centroids : bool
@@ -198,12 +200,13 @@ def detect_galaxies(
 
     Returns:
     --------
-    centers : jnp.ndarray
-        Array of detected galaxy centers (y, x) of shape (max_objects, 2)
-        Invalid entries filled with -1
-    intensities : jnp.ndarray
-        Array of peak intensities of shape (max_objects,)
-        Invalid entries filled with 0
+    peak_positions : jnp.ndarray
+        Array of detected galaxy centers (y, x) of shape (max_objects, 2).
+        Returns only the integral pixel location.
+        Invalid entries filled with -999
+    refined_positions : jnp.ndarray
+        Array of detected galaxy centers (y, x) after centroid refinement.
+        Returns the refined floating point values of the center.
     border_flags : jnp.ndarray
         Array indicating which objects were near border (shape max_objects,)
     """
