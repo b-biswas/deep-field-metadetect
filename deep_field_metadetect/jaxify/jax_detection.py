@@ -241,7 +241,8 @@ def watershed_segmentation(
         2D array of initial markers (labeled regions) where positive values
         indicate different watershed basins and 0 indicates unmarked pixels
     mask : jnp.ndarray, optional
-        Binary mask indicating valid pixels for segmentation
+        Binary mask indicating valid pixels for segmentation.
+        Pixels with non-zero masked values are masked.
     max_iterations : int
         Maximum number of iterations for the flooding process
 
@@ -251,7 +252,7 @@ def watershed_segmentation(
         2D segmentation map with same shape as input image
     """
     if mask is None:
-        mask = jnp.ones_like(image, dtype=bool)
+        mask = jnp.zeros_like(image, dtype=bool)
 
     labels = markers.copy()
     height, width = image.shape
@@ -264,7 +265,7 @@ def watershed_segmentation(
             # Skip if masked out
             # Note: another option here would be skip if already labeled
             current_label = labels_prev[i, j]
-            is_valid = mask[i, j]
+            is_valid = ~mask[i, j]
 
             def check_neighbors():
                 # Check 4-connected neighbors
