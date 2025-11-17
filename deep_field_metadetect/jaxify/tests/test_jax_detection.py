@@ -6,6 +6,8 @@ from deep_field_metadetect.jaxify.jax_detection import (
     local_maxima_filter,
     peak_finder,
     refine_centroid,
+    watershed_from_peaks,
+    watershed_segmentation,
 )
 
 
@@ -274,3 +276,62 @@ def test_faint_galaxy_detection():
 
     assert len(valid_low) == 2
     assert len(valid_high) == 1
+
+
+# -------------------------
+# Test watershed algorithm
+# -------------------------
+
+
+def test_watershed_edge_cases():
+    """Test watershed algorithm edge cases."""
+    uniform_image = jnp.ones((3, 3)) * 2.0
+    uniform_markers = jnp.zeros((3, 3), dtype=int)
+    uniform_markers = uniform_markers.at[1, 1].set(1)
+
+    result = watershed_segmentation(uniform_image, uniform_markers, max_iterations=5)
+    # All pixels should eventually be labeled due to uniform flooding
+    assert jnp.all(result == 1)
+
+
+def test_watershed_with_mask():
+    """Test watershed segmentation with a mask."""
+    image = jnp.ones((5, 5)) * 2.0
+    image = image.at[1:4, 1:4].set(1.0)  # Lower values in center
+
+    # Create mask that excludes border pixels
+    mask = jnp.ones((5, 5), dtype=bool)
+    mask = mask.at[1:4, 1:4].set(False)
+
+    markers = jnp.zeros((5, 5), dtype=int)
+    markers = markers.at[2, 2].set(1)
+
+    result = watershed_segmentation(image, markers, mask=mask, max_iterations=5)
+
+    # Only pixels within mask should be labeled
+    assert jnp.all(result[mask] != 0)
+    assert jnp.all(result[~mask] == 0)
+
+
+def test_watershed_from_peaks_with_invalid():
+    """Test watershed_from_peaks with invalid peak positions."""
+    image = jnp.ones((5, 5))
+    image = image.at[2, 2].set(3.0)
+
+    # Include some invalid peaks (marked with -999)
+    peaks = jnp.array(
+        [
+            [2, 2],  # Valid peak
+            [1, 1],  # Valid peak
+            [-999, -999],  # Invalid peak
+            [-999, -999],  # Invalid peak
+        ]
+    )
+
+    result = watershed_from_peaks(image, peaks, max_iterations=10)
+
+    unique_labels = jnp.unique(result)
+    unique_labels = unique_labels[unique_labels > 0]
+
+    # Should have exactly 2 regions (for the 2 valid peaks)
+    assert len(unique_labels) == 2
