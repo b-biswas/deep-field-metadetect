@@ -34,10 +34,7 @@ def local_maxima_filter(
             padded_image, (i, j), (window_size, window_size)
         )
 
-        return (
-            jnp.all(center_val >= neighborhood)
-            & (jnp.sum(center_val == neighborhood) == 1)
-        ) & (threshold <= center_val)
+        return (jnp.all(center_val >= neighborhood)) & (threshold <= center_val)
 
     height, width = image.shape
     i_indices, j_indices = jnp.meshgrid(
@@ -81,13 +78,13 @@ def peak_finder(
     --------
     positions : jnp.ndarray
         Array of peak coordinates (y, x) of shape (max_objects, 2)
-        Invalid entries filled with (-1, -1)
+        Invalid entries filled with (-999, -999)
     """
     local_max_mask = local_maxima_filter(
         image, window_size=window_size, threshold=threshold
     )
 
-    positions = jnp.argwhere(local_max_mask, size=max_objects, fill_value=(-1, -1))
+    positions = jnp.argwhere(local_max_mask, size=max_objects, fill_value=(-999, -999))
 
     return positions
 
@@ -97,7 +94,7 @@ def refine_centroid(
     image: jnp.ndarray, peak: Tuple[int, int], window_size: int = 5
 ) -> Tuple[float, float, bool]:
     """
-    Refine peak position using intensity-weighted centroid.
+    Refine peak position of single object using intensity-weighted centroid.
     Skips refinement for objects too close to the border.
     Returns whether object was near border for warning purposes.
 

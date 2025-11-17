@@ -114,7 +114,7 @@ def test_threshold_filtering_gaussians():
 
     # Only the high amplitude peak should be detected
     assert not result[3, 3]  # Below threshold
-    assert not result[3, 9]  # Above threshold
+    assert result[3, 9]  # Above threshold
 
 
 def test_overlapping_gaussians():
@@ -143,7 +143,7 @@ def test_edge_case_detection():
         image, threshold=1.0, window_size=3, refine_centroids=True, max_objects=5
     )
 
-    valid_peaks = peaks[peaks[:, 0] != -1]
+    valid_peaks = peaks[peaks[:, 0] > 0]
 
     assert len(valid_peaks) == 1
     assert jnp.array_equal(valid_peaks[0], jnp.array([3, 3]))
@@ -212,8 +212,8 @@ def test_complete_gaussian_detection():
         image, threshold=0.5, window_size=5, refine_centroids=True, max_objects=10
     )
 
-    valid_peaks = peaks[peaks[:, 0] != -1]
-    valid_refined = refined[peaks[:, 0] != -1]
+    valid_peaks = peaks[peaks[:, 0] > 0]
+    valid_refined = refined[peaks[:, 0] > 0]
 
     # Should detect all 4 galaxies
     assert len(valid_peaks) == 4
@@ -223,14 +223,13 @@ def test_complete_gaussian_detection():
     # Refinement should improve positions for off-grid centers
     for i in range(len(valid_refined)):
         # Refined positions should be reasonable
-        assert 0 <= valid_refined[i, 0] < 21
-        assert 0 <= valid_refined[i, 1] < 21
+        assert np.abs(np.asarray(centers)[i, 0] - valid_refined[i, 0]) < 0.5
+        assert np.abs(np.asarray(centers)[i, 1] - valid_refined[i, 1]) < 0.5
 
 
 def test_detection_with_noise():
     """Test detection robustness with added noise."""
-    np.random.seed(42)  # For reproducible test
-
+    np.random.seed(42)
     # Create clean Gaussian
     peak_location = (6, 6)
     image_clean = create_gaussian_blob((15, 15), (6, 6), sigma=1.0, amplitude=2.0)
@@ -243,7 +242,7 @@ def test_detection_with_noise():
         image_noisy, threshold=1.0, window_size=5, refine_centroids=True, max_objects=5
     )
 
-    valid_peaks = refined[refined[:, 0] != -1]
+    valid_peaks = refined[refined[:, 0] > 0]
 
     # Should still detect the main peak despite noise
     assert len(valid_peaks) >= 1
@@ -253,7 +252,7 @@ def test_detection_with_noise():
     distance_to_true = np.sqrt(
         (main_peak[0] - peak_location[0]) ** 2 + (main_peak[1] - peak_location[1]) ** 2
     )
-    assert distance_to_true < 1.0
+    assert distance_to_true < 0.5
 
 
 def test_faint_galaxy_detection():
@@ -267,11 +266,11 @@ def test_faint_galaxy_detection():
 
     # Test with threshold that should catch both
     peaks_low, _, _ = detect_galaxies(image, threshold=0.3, max_objects=5)
-    valid_low = peaks_low[peaks_low[:, 0] != -1]
+    valid_low = peaks_low[peaks_low[:, 0] > 0]
 
     # Test with threshold that should only catch bright one
     peaks_high, _, _ = detect_galaxies(image, threshold=1.0, max_objects=5)
-    valid_high = peaks_high[peaks_high[:, 0] != -1]
+    valid_high = peaks_high[peaks_high[:, 0] > 0]
 
     assert len(valid_low) == 2
     assert len(valid_high) == 1
