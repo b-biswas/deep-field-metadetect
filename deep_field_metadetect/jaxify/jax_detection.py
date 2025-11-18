@@ -12,7 +12,7 @@ def local_maxima_filter(
     window_size: int = 5,
 ) -> jnp.ndarray:
     """
-    Find local maxima in an image using morphological operations.
+    Find local maximas in an image within window_size
 
     Parameters:
     -----------
@@ -68,7 +68,7 @@ def peak_finder(
     max_objects: int = 100,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
-    Find peaks in an image above a threshold with minimum separation.
+    Find peaks in an image above a threshold
 
     Parameters:
     -----------
