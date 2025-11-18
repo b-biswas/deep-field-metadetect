@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Tuple
+from typing import Tuple, Union
 
 import jax
 import jax.numpy as jnp
@@ -7,7 +7,9 @@ import jax.numpy as jnp
 
 @partial(jax.jit, static_argnames=["window_size"])
 def local_maxima_filter(
-    image: jnp.ndarray, window_size: int = 5, threshold: float = 0.0
+    image: jnp.ndarray,
+    noise: Union[jnp.ndarray, float],
+    window_size: int = 5,
 ) -> jnp.ndarray:
     """
     Find local maxima in an image using morphological operations.
@@ -18,25 +20,29 @@ def local_maxima_filter(
         2D Input galaxy field
     window_size : int
         Size of the neighborhood for local maximum detection
-    threshold : float
-        Minimum pixel value (absolute) a central pixel must satisfy
+    noise : jnp.ndarray | float
+        Pixelwise noise sigma
+        Minimum pixel value of central pixel must > 3-sigma
 
     Returns:
     --------
     jnp.ndarray
         Binary mask indicating local maxima positions
     """
+    noise_array = jnp.broadcast_to(noise, image.shape) if jnp.isscalar(noise) else noise
+
     pad_size = window_size // 2
     padded_image = jnp.pad(image, pad_size, mode="constant", constant_values=-jnp.inf)
 
     def is_local_max(i, j):
         center_val = padded_image[i + pad_size, j + pad_size]
+        threshold = 3 * noise_array[i, j]  # noise is not padded
 
         neighborhood = jax.lax.dynamic_slice(
             padded_image, (i, j), (window_size, window_size)
         )
 
-        return (jnp.all(center_val >= neighborhood)) & (threshold <= center_val)
+        return (jnp.all(center_val >= neighborhood)) & (threshold < center_val)
 
     height, width = image.shape
     i_indices, j_indices = jnp.meshgrid(
@@ -57,20 +63,20 @@ def local_maxima_filter(
 @partial(jax.jit, static_argnames=["window_size", "max_objects"])
 def peak_finder(
     image: jnp.ndarray,
-    threshold: float = 0.1,
+    noise: Union[jnp.ndarray, float],
     window_size: int = 5,
     max_objects: int = 100,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
     Find peaks in an image above a threshold with minimum separation.
-    This function is not JITable because it uses jnp.argwhere
 
     Parameters:
     -----------
     image : jnp.ndarray
         2D Input galaxy field
-    threshold : float
-        Minimum pixel value (absolute) a central pixel must satisfy
+    noise : jnp.ndarray | float
+        Pixelwise noise sigma
+        Minimum pixel value of central pixel must be > 3-sigma
     window_size : int
         Size of the neighborhood for local maximum detection
     max_objects : int
@@ -83,7 +89,9 @@ def peak_finder(
         Invalid entries filled with (-999, -999)
     """
     local_max_mask = local_maxima_filter(
-        image, window_size=window_size, threshold=threshold
+        image=image,
+        noise=noise,
+        window_size=window_size,
     )
 
     positions = jnp.argwhere(local_max_mask, size=max_objects, fill_value=(-999, -999))
@@ -177,7 +185,7 @@ def refine_centroid_in_cell(
 @partial(jax.jit, static_argnames=["window_size", "refine_centroids", "max_objects"])
 def detect_galaxies(
     image: jnp.ndarray,
-    threshold: float = 0.0,
+    noise: Union[jnp.ndarray, float],
     window_size: int = 5,
     refine_centroids: bool = True,
     max_objects: int = 100,
@@ -189,8 +197,9 @@ def detect_galaxies(
     -----------
     image : jnp.ndarray
         2D Input galaxy field
-    threshold : float
-        Minimum pixel value (absolute) a central pixel must satisfy
+    noise : jnp.ndarray | float
+        Pixelwise noise sigma
+        Minimum pixel value of central pixel must be > 3-sigma
     window_size : int
         Minimum distance between detected peaks
     refine_centroids : bool
@@ -210,7 +219,12 @@ def detect_galaxies(
     border_flags : jnp.ndarray
         Array indicating which objects were near border (shape max_objects,)
     """
-    peak_positions = peak_finder(image, threshold, window_size, max_objects)
+    peak_positions = peak_finder(
+        image=image,
+        noise=noise,
+        window_size=window_size,
+        max_objects=max_objects,
+    )
 
     if not refine_centroids:
         border_flags = jnp.zeros(max_objects, dtype=bool)
@@ -225,7 +239,8 @@ def detect_galaxies(
 
 @partial(jax.jit, static_argnames=["max_iterations"])
 def watershed_segmentation(
-    image: jnp.ndarray,
+    inverted_image: jnp.ndarray,
+    noise: Union[jnp.ndarray, float],
     markers: jnp.ndarray,
     mask: jnp.ndarray = None,
     max_iterations: int = 30,
@@ -235,8 +250,11 @@ def watershed_segmentation(
 
     Parameters:
     -----------
-    image : jnp.ndarray
-        2D input image (typically distance transform or inverted intensity)
+    nverted_image : jnp.ndarray
+        2D input image with inverted intensity
+    noise : jnp.ndarray | float
+        Pixelwise noise sigma
+        flooding continues to the neightboring pixel within a limit of sigma
     markers : jnp.ndarray
         2D array of initial markers (labeled regions) where positive values
         indicate different watershed basins and 0 indicates unmarked pixels
@@ -251,11 +269,15 @@ def watershed_segmentation(
     labels : jnp.ndarray
         2D segmentation map with same shape as input image
     """
+    noise_array = (
+        jnp.broadcast_to(noise, inverted_image.shape) if jnp.isscalar(noise) else noise
+    )
+
     if mask is None:
-        mask = jnp.zeros_like(image, dtype=bool)
+        mask = jnp.zeros_like(inverted_image, dtype=bool)
 
     labels = markers.copy()
-    height, width = image.shape
+    height, width = inverted_image.shape
 
     def watershed_step(labels_prev):
         """Single iteration of watershed flooding"""
@@ -283,7 +305,9 @@ def watershed_segmentation(
                 neighbor_labels = labels_prev[
                     neighbor_coords[:, 0], neighbor_coords[:, 1]
                 ]
-                neighbor_values = image[neighbor_coords[:, 0], neighbor_coords[:, 1]]
+                neighbor_values = inverted_image[
+                    neighbor_coords[:, 0], neighbor_coords[:, 1]
+                ]
 
                 # Mask for valid (labeled and in-bounds) neighbors
                 valid_mask = in_bounds & (neighbor_labels > 0)
@@ -296,7 +320,8 @@ def watershed_segmentation(
                     min_idx = jnp.argmin(masked_values)
 
                     # Check if current pixel should be flooded
-                    current_value = image[i, j]
+                    current_value = inverted_image[i, j]
+                    current_noise = noise_array[i, j]
                     min_neighbor_value = neighbor_values[min_idx]
 
                     # Flood if current value is >= minimum neighbor value
@@ -304,7 +329,7 @@ def watershed_segmentation(
                         """Decides when to flood a pixel based on if it is marked"""
 
                         def unmarked_pixel():
-                            return (current_value + 0.05) >= min_neighbor_value
+                            return (current_value + current_noise) >= min_neighbor_value
 
                         def marked_pixel():
                             return (current_value) >= min_neighbor_value
@@ -360,6 +385,7 @@ def watershed_segmentation(
 @partial(jax.jit, static_argnames=["max_iterations"])
 def watershed_from_peaks(
     image: jnp.ndarray,
+    noise: Union[jnp.ndarray, float],
     peaks: jnp.ndarray,
     mask: jnp.ndarray = None,
     max_iterations: int = 30,
@@ -371,6 +397,9 @@ def watershed_from_peaks(
     -----------
     image : jnp.ndarray
         2D input image
+    noise : jnp.ndarray | float
+        Pixelwise noise sigma
+        flooding continues to the neightboring pixel within a limit of sigma
     peaks : jnp.ndarray
         Array of peak positions (y, x) of shape (n_peaks, 2)
     mask : jnp.ndarray
@@ -386,7 +415,7 @@ def watershed_from_peaks(
     """
     height, width = image.shape
 
-    distance_image = -image  # Invert so peaks become valleys
+    inverted_image = -image  # Invert so peaks become valleys
 
     markers = jnp.zeros((height, width), dtype=jnp.int32)
 
@@ -407,8 +436,9 @@ def watershed_from_peaks(
 
     # Apply watershed algorithm
     watershed_labels = watershed_segmentation(
-        distance_image,
-        markers,
+        inverted_image,
+        noise=noise,
+        markers=markers,
         max_iterations=max_iterations,
         mask=mask,
     )

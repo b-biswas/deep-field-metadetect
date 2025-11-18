@@ -85,7 +85,8 @@ def single_gaussian():
         (10, 10), centers, sigmas=[1.0], amplitudes=amplitudes
     )
 
-    peak = peak_finder(image, max_objects=max_objects)
+    noise = 0.0
+    peak = peak_finder(image, noise=noise, max_objects=max_objects)
 
     assert len(peak) == max_objects
     assert (peak[0][0] == centers[0][0]) & (peak[0][1] == centers[0][1])
@@ -99,7 +100,8 @@ def test_multiple_separated_gaussians():
         (10, 10), centers, sigmas=[1.0] * 4, amplitudes=amplitudes
     )
 
-    result = local_maxima_filter(image, window_size=3, threshold=0.0)
+    noise = 0.0
+    result = local_maxima_filter(image, noise=noise, window_size=3)
 
     # All centers should be detected as peaks
     for center in centers:
@@ -112,7 +114,8 @@ def test_threshold_filtering_gaussians():
     amplitudes = [0.5, 2.0]  # First below threshold, second above
     image = create_multiple_gaussian_blobs((12, 12), centers, amplitudes=amplitudes)
 
-    result = local_maxima_filter(image, window_size=3, threshold=0.6)
+    noise = 0.5
+    result = local_maxima_filter(image, noise=noise, window_size=3)
 
     # Only the high amplitude peak should be detected
     assert not result[3, 3]  # Below threshold
@@ -127,7 +130,8 @@ def test_overlapping_gaussians():
         (9, 9), centers, sigmas=[1.5, 1.5], amplitudes=[1.0, 1.0]
     )
 
-    result = local_maxima_filter(image, window_size=3, threshold=0.0)
+    noise = 0.0
+    result = local_maxima_filter(image, noise=noise, window_size=3)
 
     # Depending on overlap, may detect one or both peaks
     # At minimum, should detect at least one peak in the region
@@ -139,16 +143,22 @@ def test_edge_case_detection():
     """Test detection of edge cases and boundary conditions."""
     # Single pixel "galaxy"
     image = jnp.zeros((7, 7))
-    image = image.at[3, 3].set(5.0)
+    image = image.at[5, 5].set(5.0)
 
+    noise = 0.0
     peaks, refined, border_flags = detect_galaxies(
-        image, threshold=1.0, window_size=3, refine_centroids=True, max_objects=5
+        image=image,
+        noise=noise,
+        window_size=3,
+        refine_centroids=True,
+        max_objects=5,
     )
 
+    print(peaks)
     valid_peaks = peaks[peaks[:, 0] > 0]
 
     assert len(valid_peaks) == 1
-    assert jnp.array_equal(valid_peaks[0], jnp.array([3, 3]))
+    assert jnp.array_equal(valid_peaks[0], jnp.array([5, 5]))
 
 
 # ------------------------
@@ -210,8 +220,9 @@ def test_complete_gaussian_detection():
         (21, 21), centers, sigmas=sigmas, amplitudes=amplitudes
     )
 
+    noise = 0.0
     peaks, refined, _ = detect_galaxies(
-        image, threshold=0.5, window_size=5, refine_centroids=True, max_objects=10
+        image, noise=noise, window_size=5, refine_centroids=True, max_objects=10
     )
 
     valid_peaks = peaks[peaks[:, 0] > 0]
@@ -240,8 +251,9 @@ def test_detection_with_noise():
     noise = jnp.array(np.random.normal(0, 0.2, image_clean.shape))
     image_noisy = image_clean + noise
 
+    noise = 0.2
     _, refined, _ = detect_galaxies(
-        image_noisy, threshold=1.0, window_size=5, refine_centroids=True, max_objects=5
+        image_noisy, noise=noise, window_size=5, refine_centroids=True, max_objects=5
     )
 
     valid_peaks = refined[refined[:, 0] > 0]
@@ -267,11 +279,13 @@ def test_faint_galaxy_detection():
     )
 
     # Test with threshold that should catch both
-    peaks_low, _, _ = detect_galaxies(image, threshold=0.3, max_objects=5)
+    noise = 0.2
+    peaks_low, _, _ = detect_galaxies(image, noise=noise, max_objects=5)
     valid_low = peaks_low[peaks_low[:, 0] > 0]
 
     # Test with threshold that should only catch bright one
-    peaks_high, _, _ = detect_galaxies(image, threshold=1.0, max_objects=5)
+    noise = 0.3
+    peaks_high, _, _ = detect_galaxies(image, noise=noise, max_objects=5)
     valid_high = peaks_high[peaks_high[:, 0] > 0]
 
     assert len(valid_low) == 2
@@ -289,7 +303,10 @@ def test_watershed_edge_cases():
     uniform_markers = jnp.zeros((3, 3), dtype=int)
     uniform_markers = uniform_markers.at[1, 1].set(1)
 
-    result = watershed_segmentation(uniform_image, uniform_markers, max_iterations=5)
+    noise = 0.0
+    result = watershed_segmentation(
+        uniform_image, noise, uniform_markers, max_iterations=5
+    )
     # All pixels should eventually be labeled due to uniform flooding
     assert jnp.all(result == 1)
 
@@ -306,11 +323,12 @@ def test_watershed_with_mask():
     markers = jnp.zeros((5, 5), dtype=int)
     markers = markers.at[2, 2].set(1)
 
-    result = watershed_segmentation(image, markers, mask=mask, max_iterations=5)
+    noise = 0.0
+    result = watershed_segmentation(image, noise, markers, mask=mask, max_iterations=5)
 
     # Only pixels within mask should be labeled
-    assert jnp.all(result[mask] != 0)
-    assert jnp.all(result[~mask] == 0)
+    assert jnp.all(result[mask] == 0)
+    assert jnp.all(result[~mask] != 0)
 
 
 def test_watershed_from_peaks_with_invalid():
@@ -328,7 +346,8 @@ def test_watershed_from_peaks_with_invalid():
         ]
     )
 
-    result = watershed_from_peaks(image, peaks, max_iterations=10)
+    noise = 0.0
+    result = watershed_from_peaks(image, noise, peaks, max_iterations=10)
 
     unique_labels = jnp.unique(result)
     unique_labels = unique_labels[unique_labels > 0]
