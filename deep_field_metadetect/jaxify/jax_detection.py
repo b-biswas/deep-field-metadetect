@@ -254,7 +254,7 @@ def watershed_segmentation(
         2D input image with inverted intensity
     noise : jnp.ndarray | float
         Pixelwise noise sigma
-        flooding continues to the neightboring pixel within a limit of sigma
+        flooding continues to unmarked neightboring pixel within a limit of sigma
     markers : jnp.ndarray
         2D array of initial markers (labeled regions) where positive values
         indicate different watershed basins and 0 indicates unmarked pixels
