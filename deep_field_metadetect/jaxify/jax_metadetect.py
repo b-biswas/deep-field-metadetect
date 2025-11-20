@@ -31,7 +31,7 @@ def jax_single_band_deep_field_metadetect(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    max_min_fft_size=1024,
+    fft_size=1024,
 ) -> dict:
     """Run deep-field metadetection for a simple scenario of a single band
     with a single image per band using only post-PSF Gaussian weighted moments.
@@ -90,7 +90,7 @@ def jax_single_band_deep_field_metadetect(
         force_maxk_field=force_maxk_field,
         force_stepk_psf=force_stepk_psf,
         force_maxk_psf=force_maxk_psf,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )  # This returns ngmix Obs for now
 
     psf_res = fit_gauss_mom_obs(mcal_res["noshear"].psf)

@@ -117,13 +117,13 @@ def jax_get_max_gauss_reconv_psf(obs_w, obs_d, nxy_psf, scale=0.2, step=DEFAULT_
     )
 
 
-@partial(jax.jit, static_argnames=["nxy_psf", "max_min_fft_size"])
+@partial(jax.jit, static_argnames=["nxy_psf", "fft_size"])
 def _jax_render_psf_and_build_obs(
-    image, dfmd_obs, reconv_psf, nxy_psf, weight_fac=1, max_min_fft_size=1024
+    image, dfmd_obs, reconv_psf, nxy_psf, weight_fac=1, fft_size=1024
 ):
     reconv_psf = reconv_psf.withGSParams(
-        minimum_fft_size=max_min_fft_size,
-        maximum_fft_size=max_min_fft_size,
+        minimum_fft_size=fft_size,
+        maximum_fft_size=fft_size,
     )
 
     pim = reconv_psf.drawImage(
@@ -142,9 +142,9 @@ def _jax_render_psf_and_build_obs(
     )
 
 
-@partial(jax.jit, static_argnames=["dims", "max_min_fft_size"])
+@partial(jax.jit, static_argnames=["dims", "fft_size"])
 def _jax_metacal_op_g1g2_impl(
-    *, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g2, max_min_fft_size=1024
+    *, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g2, fft_size=1024
 ):
     """Run metacal on an dfmd observation.
 
@@ -166,14 +166,14 @@ def _jax_metacal_op_g1g2_impl(
     )
 
     ims = ims.withGSParams(
-        minimum_fft_size=max_min_fft_size,
-        maximum_fft_size=max_min_fft_size,
+        minimum_fft_size=fft_size,
+        maximum_fft_size=fft_size,
     )
     ims = ims.drawImage(nx=dims[1], ny=dims[0], wcs=wcs).array
 
     ns = ns.withGSParams(
-        minimum_fft_size=max_min_fft_size,
-        maximum_fft_size=max_min_fft_size,
+        minimum_fft_size=fft_size,
+        maximum_fft_size=fft_size,
     )
     ns = jnp.rot90(
         ns.drawImage(nx=dims[1], ny=dims[0], wcs=wcs).array,
@@ -182,7 +182,7 @@ def _jax_metacal_op_g1g2_impl(
     return ims + ns
 
 
-def jax_metacal_op_g1g2(dfmd_obs, reconv_psf, g1, g2, nxy_psf, max_min_fft_size=1024):
+def jax_metacal_op_g1g2(dfmd_obs, reconv_psf, g1, g2, nxy_psf, fft_size=1024):
     """Run metacal on an dfmd obs."""
     mcal_image = _jax_metacal_op_g1g2_impl(
         wcs=dfmd_obs.wcs._local_wcs,
@@ -197,7 +197,7 @@ def jax_metacal_op_g1g2(dfmd_obs, reconv_psf, g1, g2, nxy_psf, max_min_fft_size=
         reconv_psf=reconv_psf,
         g1=g1,
         g2=g2,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
 
     return _jax_render_psf_and_build_obs(
@@ -206,11 +206,11 @@ def jax_metacal_op_g1g2(dfmd_obs, reconv_psf, g1, g2, nxy_psf, max_min_fft_size=
         reconv_psf,
         nxy_psf=nxy_psf,
         weight_fac=0.5,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
 
 
-@partial(jax.jit, static_argnames=["nxy_psf", "scale", "shears", "max_min_fft_size"])
+@partial(jax.jit, static_argnames=["nxy_psf", "scale", "shears", "fft_size"])
 def jax_metacal_op_shears(
     dfmd_obs,
     nxy_psf=53,
@@ -218,7 +218,7 @@ def jax_metacal_op_shears(
     shears=None,
     step=DEFAULT_STEP,
     scale=0.2,
-    max_min_fft_size=1024,
+    fft_size=1024,
 ):
     """Run metacal on an dfmd observation."""
     if shears is None:
@@ -256,7 +256,7 @@ def jax_metacal_op_shears(
             reconv_psf=reconv_psf,
             g1=g1,
             g2=g2,
-            max_min_fft_size=max_min_fft_size,
+            fft_size=fft_size,
         )
         return _jax_render_psf_and_build_obs(
             mcal_image,
@@ -264,7 +264,7 @@ def jax_metacal_op_shears(
             reconv_psf,
             nxy_psf=nxy_psf,
             weight_fac=0.5,
-            max_min_fft_size=max_min_fft_size,
+            fft_size=fft_size,
         )
 
     # Use vmap to parallelize across shears
@@ -289,7 +289,7 @@ def jax_metacal_op_shears(
         "force_maxk_field",
         "force_stepk_psf",
         "force_maxk_psf",
-        "max_min_fft_size",
+        "fft_size",
     ],
 )
 def jax_match_psf(
@@ -302,7 +302,7 @@ def jax_match_psf(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    max_min_fft_size=1024,
+    fft_size=1024,
 ):
     """Match the PSF on an dfmd observation to a new PSF."""
     wcs = dfmd_obs.wcs._local_wcs
@@ -322,14 +322,14 @@ def jax_match_psf(
     ims = jax_galsim.Convolve(
         [image, jax_galsim.Deconvolve(psf), reconv_psf],
         gsparams=jax_galsim.GSParams(
-            minimum_fft_size=max_min_fft_size,
-            maximum_fft_size=max_min_fft_size,
+            minimum_fft_size=fft_size,
+            maximum_fft_size=fft_size,
         ),
     )
 
     ims = ims.withGSParams(
-        minimum_fft_size=max_min_fft_size,
-        maximum_fft_size=max_min_fft_size,
+        minimum_fft_size=fft_size,
+        maximum_fft_size=fft_size,
     )
     ims = ims.drawImage(nx=nxy, ny=nxy, wcs=wcs).array
 
@@ -494,7 +494,7 @@ def get_jax_galsim_object_from_dfmd_obs_nopix(dfmd_obs, kind="image"):
         "force_maxk_field",
         "force_stepk_psf",
         "force_maxk_psf",
-        "max_min_fft_size",
+        "fft_size",
     ],
 )
 def _jax_helper_metacal_wide_and_deep_psf_matched(
@@ -515,7 +515,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    max_min_fft_size=1024,
+    fft_size=1024,
 ):
     """Do metacalibration for a combination of wide+deep datasets."""
 
@@ -531,7 +531,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
         force_maxk_field=force_maxk_field,
         force_stepk_psf=force_stepk_psf,
         force_maxk_psf=force_maxk_psf,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
     if not skip_obs_wide_corrections:
         mcal_obs_wide = jax_add_dfmd_obs(
@@ -551,7 +551,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
         force_maxk_field=force_maxk_field,
         force_stepk_psf=force_stepk_psf,
         force_maxk_psf=force_maxk_psf,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
 
     # now run mcal on deep
@@ -562,7 +562,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
         step=step,
         nxy_psf=nxy_psf,
         scale=scale,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
 
     # now add in noise corr to make it match the wide noise
@@ -601,7 +601,7 @@ def jax_metacal_wide_and_deep_psf_matched(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    max_min_fft_size=1024,
+    fft_size=1024,
 ):
     """Do metacalibration for a combination of wide+deep datasets."""
 
@@ -626,7 +626,7 @@ def jax_metacal_wide_and_deep_psf_matched(
         force_maxk_field=force_maxk_field,
         force_stepk_psf=force_stepk_psf,
         force_maxk_psf=force_maxk_psf,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
 
     for k in mcal_res:
