@@ -1,7 +1,6 @@
 import jax.numpy as jnp
 
 
-# @partial(jax.jit, static_argnames=["pixel_scale", "image_size"])
 def compute_stepk(pixel_scale, image_size):
     """Compute psf fourier scale based on pixel scale and psf image dimension
     The size if obtained from from galsim.GSObject.getGoodImageSize
