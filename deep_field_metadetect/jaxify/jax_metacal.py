@@ -146,7 +146,7 @@ def _jax_render_psf_and_build_obs(
 
 @partial(jax.jit, static_argnames=["dims", "fft_size"])
 def _jax_metacal_op_g1g2_impl(
-    *, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g2, fft_size=1024
+    *, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g2, fft_size=DEFAULT_FFT_SIZE
 ):
     """Run metacal on an dfmd observation.
 
@@ -184,7 +184,9 @@ def _jax_metacal_op_g1g2_impl(
     return ims + ns
 
 
-def jax_metacal_op_g1g2(dfmd_obs, reconv_psf, g1, g2, nxy_psf, fft_size=1024):
+def jax_metacal_op_g1g2(
+    dfmd_obs, reconv_psf, g1, g2, nxy_psf, fft_size=DEFAULT_FFT_SIZE
+):
     """Run metacal on an dfmd obs."""
     mcal_image = _jax_metacal_op_g1g2_impl(
         wcs=dfmd_obs.wcs._local_wcs,

@@ -6,6 +6,7 @@ from deep_field_metadetect.detect import (
     run_detection_sep,
 )
 from deep_field_metadetect.jaxify.jax_metacal import (
+    DEFAULT_FFT_SIZE,
     DEFAULT_SHEARS,
     DEFAULT_STEP,
     jax_metacal_wide_and_deep_psf_matched,
@@ -31,7 +32,7 @@ def jax_single_band_deep_field_metadetect(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    fft_size=1024,
+    fft_size=DEFAULT_FFT_SIZE,
 ) -> dict:
     """Run deep-field metadetection for a simple scenario of a single band
     with a single image per band using only post-PSF Gaussian weighted moments.
