@@ -13,6 +13,8 @@ from deep_field_metadetect.jaxify.observation import (
 )
 from deep_field_metadetect.metacal import DEFAULT_SHEARS, DEFAULT_STEP
 
+DEFAULT_FFT_SIZE = 256
+
 
 def get_shear_tuple(shear, step):
     if shear == "noshear":
@@ -119,7 +121,7 @@ def jax_get_max_gauss_reconv_psf(obs_w, obs_d, nxy_psf, scale=0.2, step=DEFAULT_
 
 @partial(jax.jit, static_argnames=["nxy_psf", "fft_size"])
 def _jax_render_psf_and_build_obs(
-    image, dfmd_obs, reconv_psf, nxy_psf, weight_fac=1, fft_size=1024
+    image, dfmd_obs, reconv_psf, nxy_psf, weight_fac=1, fft_size=DEFAULT_FFT_SIZE
 ):
     reconv_psf = reconv_psf.withGSParams(
         minimum_fft_size=fft_size,
@@ -215,10 +217,10 @@ def jax_metacal_op_shears(
     dfmd_obs,
     nxy_psf=53,
     reconv_psf=None,
-    shears=None,
+    shears=DEFAULT_SHEARS,
     step=DEFAULT_STEP,
     scale=0.2,
-    fft_size=1024,
+    fft_size=DEFAULT_FFT_SIZE,
 ):
     """Run metacal on an dfmd observation."""
     if shears is None:
@@ -302,7 +304,7 @@ def jax_match_psf(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    fft_size=1024,
+    fft_size=DEFAULT_FFT_SIZE,
 ):
     """Match the PSF on an dfmd observation to a new PSF."""
     wcs = dfmd_obs.wcs._local_wcs
@@ -515,7 +517,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    fft_size=1024,
+    fft_size=DEFAULT_FFT_SIZE,
 ):
     """Do metacalibration for a combination of wide+deep datasets."""
 
@@ -590,7 +592,7 @@ def jax_metacal_wide_and_deep_psf_matched(
     obs_deep_noise,
     nxy,
     nxy_psf,
-    shears=None,
+    shears=DEFAULT_SHEARS,
     step=DEFAULT_STEP,
     skip_obs_wide_corrections=False,
     skip_obs_deep_corrections=False,
@@ -601,7 +603,7 @@ def jax_metacal_wide_and_deep_psf_matched(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    fft_size=1024,
+    fft_size=DEFAULT_FFT_SIZE,
 ):
     """Do metacalibration for a combination of wide+deep datasets."""
 
