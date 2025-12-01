@@ -28,7 +28,7 @@ def single_band_deep_field_metadetect(
     force_maxk_field=0.0,
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
-    max_min_fft_size=None,
+    fft_size=None,
 ):
     """Run deep-field metadetection for a simple scenario of a single band
     with a single image per band using only post-PSF Gaussian weighted moments.
@@ -74,7 +74,7 @@ def single_band_deep_field_metadetect(
         Force stepk for drawing PSF images
         Defaults to 0.0, which lets Galsim choose the value.
         Used mainly for testing.
-    max_min_fft_size: int, optional
+    fft_size: int, optional
         To fix max and min values of FFT size.
         Defaults to None which lets Galsim determine the values.
         Used mainly to test against JaxGalsim.
@@ -105,7 +105,7 @@ def single_band_deep_field_metadetect(
         force_maxk_field=force_maxk_field,
         force_stepk_psf=force_stepk_psf,
         force_maxk_psf=force_maxk_psf,
-        max_min_fft_size=max_min_fft_size,
+        fft_size=fft_size,
     )
 
     psf_res = fit_gauss_mom_obs(mcal_res["noshear"].psf)
