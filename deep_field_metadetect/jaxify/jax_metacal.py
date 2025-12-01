@@ -31,7 +31,7 @@ def get_shear_tuple(shear, step):
 
 @partial(jax.jit, static_argnames=["dk", "nxy_psf", "kim_size"])
 def jax_get_gauss_reconv_psf_galsim(
-    psf, dk, nxy_psf=53, step=DEFAULT_STEP, flux=1, kim_size=None
+    psf, dk, nxy_psf=53, step=DEFAULT_STEP, flux=1.0, kim_size=None
 ):
     """Gets the target reconvolution PSF for an input PSF object.
 
