@@ -400,21 +400,27 @@ def jax_add_dfmd_obs(
             ),
         )
 
-    if dfmd_obs1.has_psf() != dfmd_obs2.has_psf() and not ignore_psf:
-        raise RuntimeError(
-            "Observations must both either have or not have a "
-            "PSF to add them. %s != %s"
-            % (
-                dfmd_obs1.has_psf(),
-                dfmd_obs2.has_psf(),
-            ),
+    # Handle PSF addition using dedicated function
+    def add_psfs():
+        return jax_add_dfmd_psf(dfmd_obs1.psf, dfmd_obs2.psf)
+
+    def no_psf():
+        from deep_field_metadetect.jaxify.observation import DFMdetPSF
+
+        return DFMdetPSF(
+            image=jnp.zeros_like(dfmd_obs1.psf.image, dtype=jnp.float32),
+            wcs=dfmd_obs1.psf.wcs,
+            meta=dfmd_obs1.psf.meta,
+            store_pixels=dfmd_obs1.psf.store_pixels,
+            ignore_zero_weight=dfmd_obs1.psf.ignore_zero_weight,
         )
 
-    if dfmd_obs1.has_psf() and dfmd_obs2.has_psf() and not ignore_psf:
-        # We ignore the PSF in this call since PSFs do not have PSFs
-        new_psf = jax_add_dfmd_obs(dfmd_obs1.psf, dfmd_obs2.psf, ignore_psf=True)
-    else:
-        new_psf = None
+    # Add PSFs if both exist and we're not ignoring PSF
+    has_psf1 = dfmd_obs1.has_psf()
+    has_psf2 = dfmd_obs2.has_psf()
+    should_add_psf = (~ignore_psf) & has_psf1 & has_psf2
+
+    new_psf = jax.lax.cond(should_add_psf, add_psfs, no_psf)
 
     new_wgt = jnp.where(
         (dfmd_obs1.weight > 0) & (dfmd_obs2.weight > 0),
@@ -422,35 +428,20 @@ def jax_add_dfmd_obs(
         0,
     )
 
-    new_bmask = None
-    new_ormask = None
-    new_noise = None
-    new_mfrac = None
     new_meta_data = {}
 
-    if dfmd_obs1.has_bmask() or dfmd_obs2.has_bmask():
-        new_bmask = _extract_attr(dfmd_obs1, "bmask", jnp.int32) | _extract_attr(
-            dfmd_obs2, "bmask", jnp.int32
-        )
+    # Handle bmask, ormask, noise, and mfrac
+    new_bmask = dfmd_obs1.bmask | dfmd_obs2.bmask
+    new_ormask = dfmd_obs1.ormask | dfmd_obs2.ormask
+    new_noise = dfmd_obs1.noise + dfmd_obs2.noise
 
-    if dfmd_obs1.has_ormask() or dfmd_obs2.has_ormask():
-        new_ormask = _extract_attr(dfmd_obs1, "ormask", jnp.int32) | _extract_attr(
-            dfmd_obs2, "ormask", jnp.int32
-        )
+    def mfrac_skip_second():
+        return dfmd_obs1.mfrac
 
-    if dfmd_obs1.has_noise() or dfmd_obs2.has_noise():
-        new_noise = _extract_attr(dfmd_obs1, "noise") + _extract_attr(
-            dfmd_obs2, "noise"
-        )
+    def mfrac_use_both():
+        return (dfmd_obs1.mfrac + dfmd_obs2.mfrac) / 2
 
-    if skip_mfrac_for_second:
-        if dfmd_obs1.has_mfrac():
-            new_mfrac = _extract_attr(dfmd_obs1, "mfrac")
-    else:
-        if dfmd_obs1.has_mfrac() or dfmd_obs2.has_mfrac():
-            new_mfrac = (
-                _extract_attr(dfmd_obs1, "mfrac") + _extract_attr(dfmd_obs2, "mfrac")
-            ) / 2
+    new_mfrac = jax.lax.cond(skip_mfrac_for_second, mfrac_skip_second, mfrac_use_both)
 
     new_meta_data.update(dfmd_obs1.meta)
     new_meta_data.update(dfmd_obs2.meta)
