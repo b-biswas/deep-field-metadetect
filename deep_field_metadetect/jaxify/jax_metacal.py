@@ -218,25 +218,24 @@ def jax_metacal_op_g1g2(
 def jax_metacal_op_shears(
     dfmd_obs,
     nxy_psf=53,
-    reconv_psf=None,
+    reconv_psf=jax_galsim.Gaussian(sigma=0.001).withFlux(1.0),
     shears=DEFAULT_SHEARS,
     step=DEFAULT_STEP,
     scale=0.2,
     fft_size=DEFAULT_FFT_SIZE,
 ):
     """Run metacal on an dfmd observation."""
-    if shears is None:
-        shears = DEFAULT_SHEARS
-
     dk = compute_stepk(pixel_scale=scale, image_size=nxy_psf)
-    if reconv_psf is None:
-        reconv_psf = jax_get_gauss_reconv_psf(
-            dfmd_obs,
-            dk=dk,
-            nxy_psf=nxy_psf,
-            step=step,
-        )
 
+    def compute_reconv():
+        return jax_get_gauss_reconv_psf(dfmd_obs, dk=dk, nxy_psf=nxy_psf, step=step)
+
+    def use_provided_reconv():
+        return reconv_psf
+
+    reconv_psf = jax.lax.cond(
+        reconv_psf.sigma == 0.001, compute_reconv, use_provided_reconv
+    )
     wcs = dfmd_obs.wcs._local_wcs
     image = get_jax_galsim_object_from_dfmd_obs(dfmd_obs, kind="image")
     # we rotate by 90 degrees on the way in and then _metacal_op_g1g2_impl
