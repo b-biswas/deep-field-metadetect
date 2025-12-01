@@ -1,6 +1,5 @@
-from typing import NamedTuple, Optional
-
 import jax
+import jax.numpy as jnp
 import jax_galsim
 import ngmix
 import numpy as np
@@ -8,18 +7,120 @@ from ngmix.observation import Observation
 
 
 @jax.tree_util.register_pytree_node_class
-class DFMdetObservation(NamedTuple):
-    image: jax.Array
-    weight: Optional[jax.Array]
-    bmask: Optional[jax.Array]
-    ormask: Optional[jax.Array]
-    noise: Optional[jax.Array]
-    wcs: Optional[jax_galsim.wcs.AffineTransform]
-    psf: Optional["DFMdetObservation"]
-    mfrac: Optional[jax.Array]
-    meta: Optional[dict]
-    store_pixels: bool
-    ignore_zero_weight: bool
+class DFMdetPSF:
+    def __init__(
+        self,
+        image,
+        weight=None,
+        wcs=None,
+        meta=None,
+        store_pixels=True,
+        ignore_zero_weight=True,
+    ):
+        if meta is None:
+            meta = {}
+
+        if wcs is None:
+            wcs = jax_galsim.wcs.AffineTransform(
+                dudx=1.0,
+                dudy=0.0,
+                dvdx=0.0,
+                dvdy=1.0,
+            )
+
+        self.image = image
+        if weight is None:
+            weight = jnp.ones_like(self.image, dtype=jnp.float32)
+        self.weight = weight
+        self.wcs = wcs
+        self.meta = meta
+        self.store_pixels = store_pixels
+        self.ignore_zero_weight = ignore_zero_weight
+
+    def tree_flatten(self):
+        children = (self.image, self.weight)
+        aux_data = (self.wcs, self.meta, self.store_pixels, self.ignore_zero_weight)
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(
+            image=children[0],
+            weight=children[1],
+            wcs=aux_data[0],
+            meta=aux_data[1],
+            store_pixels=aux_data[2],
+            ignore_zero_weight=aux_data[3],
+        )
+
+    def has_psf(self):
+        return jnp.any(self.image != 0)
+
+    @jax.jit
+    def _replace(self, **kwargs):
+        """Create a new instance similar to NamedTuple._replace"""
+        new_kwargs = {
+            "image": self.image,
+            "wcs": self.wcs,
+            "meta": self.meta,
+            "store_pixels": self.store_pixels,
+            "ignore_zero_weight": self.ignore_zero_weight,
+        }
+        new_kwargs.update(kwargs)
+        return DFMdetPSF(**new_kwargs)
+
+
+@jax.tree_util.register_pytree_node_class
+class DFMdetObservation:
+    def __init__(
+        self,
+        image,
+        weight=None,
+        bmask=None,
+        ormask=None,
+        noise=None,
+        wcs=None,
+        psf=None,
+        mfrac=None,
+        meta=None,
+        store_pixels=True,
+        ignore_zero_weight=True,
+    ):
+        image = image
+        if weight is None:
+            weight = jnp.ones_like(image, dtype=jnp.float32)
+        if bmask is None:
+            bmask = jnp.zeros_like(image, dtype=jnp.int32)
+        if ormask is None:
+            ormask = jnp.zeros_like(image, dtype=jnp.int32)
+        if noise is None:
+            noise = jnp.zeros_like(image, dtype=jnp.float32)
+        if mfrac is None:
+            mfrac = jnp.ones_like(image, dtype=jnp.float32)
+        if meta is None:
+            meta = {}
+
+        if psf is None:
+            psf = DFMdetPSF(image=jnp.zeros_like(image, dtype=jnp.float32))
+
+        if wcs is None:
+            wcs = jax_galsim.wcs.AffineTransform(
+                dudx=1.0,
+                dudy=0.0,
+                dvdx=0.0,
+                dvdy=1.0,
+            )
+        self.image = image
+        self.weight = weight
+        self.bmask = bmask
+        self.ormask = ormask
+        self.noise = noise
+        self.wcs = wcs
+        self.psf = psf
+        self.mfrac = mfrac
+        self.meta = meta
+        self.store_pixels = store_pixels
+        self.ignore_zero_weight = ignore_zero_weight
 
     def tree_flatten(self):
         children = (
@@ -40,32 +141,53 @@ class DFMdetObservation(NamedTuple):
     @classmethod
     def tree_unflatten(cls, aux_data, children):
         # Reconstruct the object from flattened data
-        return cls(*children, *aux_data)
+        return cls(
+            image=children[0],
+            weight=children[1],
+            bmask=children[2],
+            ormask=children[3],
+            noise=children[4],
+            wcs=children[5],
+            psf=children[6],
+            mfrac=children[7],
+            meta=aux_data[0],
+            store_pixels=aux_data[1],
+            ignore_zero_weight=aux_data[2],
+        )
 
-    def has_bmask(self) -> bool:
-        if self.bmask is None:
-            return False
-        return True
+    def has_bmask(self):
+        return jnp.any(self.bmask != 0)
 
-    def has_mfrac(self) -> bool:
-        if self.bmask is None:
-            return False
-        return True
+    def has_mfrac(self):
+        return jnp.any(self.mfrac != 1)
 
-    def has_noise(self) -> bool:
-        if self.noise is None:
-            return False
-        return True
+    def has_noise(self):
+        return jnp.any(self.noise != 0)
 
-    def has_ormask(self) -> bool:
-        if self.ormask is None:
-            return False
-        return True
+    def has_ormask(self):
+        return jnp.any(self.ormask != 0)
 
-    def has_psf(self) -> bool:
-        if self.psf is None:
-            return False
-        return True
+    def has_psf(self):
+        return jnp.any(self.psf.image != 0)
+
+    @jax.jit
+    def _replace(self, **kwargs):
+        """Create a new instance similar to NamedTuple._replace"""
+        new_kwargs = {
+            "image": self.image,
+            "weight": self.weight,
+            "bmask": self.bmask,
+            "ormask": self.ormask,
+            "noise": self.noise,
+            "wcs": self.wcs,
+            "psf": self.psf,
+            "mfrac": self.mfrac,
+            "meta": self.meta,
+            "store_pixels": self.store_pixels,
+            "ignore_zero_weight": self.ignore_zero_weight,
+        }
+        new_kwargs.update(kwargs)
+        return DFMdetObservation(**new_kwargs)
 
 
 def ngmix_obs_to_dfmd_obs(obs: ngmix.observation.Observation) -> DFMdetObservation:
@@ -73,7 +195,24 @@ def ngmix_obs_to_dfmd_obs(obs: ngmix.observation.Observation) -> DFMdetObservati
 
     psf = None
     if obs.has_psf():
-        psf = ngmix_obs_to_dfmd_obs(obs.get_psf())
+        psf_obs = obs.get_psf()
+        psf_jacobian = psf_obs.get_jacobian()
+        psf = DFMdetPSF(
+            image=psf_obs.image,
+            wcs=jax_galsim.wcs.AffineTransform(
+                dudx=psf_jacobian.dudcol,
+                dudy=psf_jacobian.dudrow,
+                dvdx=psf_jacobian.dvdcol,
+                dvdy=psf_jacobian.dvdrow,
+                origin=jax_galsim.PositionD(
+                    y=psf_jacobian.row0 + 1,
+                    x=psf_jacobian.col0 + 1,
+                ),
+            ),
+            meta=psf_obs.meta,
+            store_pixels=getattr(psf_obs, "store_pixels", True),
+            ignore_zero_weight=getattr(psf_obs, "ignore_zero_weight", True),
+        )
 
     return DFMdetObservation(
         image=obs.image,
@@ -99,16 +238,40 @@ def ngmix_obs_to_dfmd_obs(obs: ngmix.observation.Observation) -> DFMdetObservati
     )
 
 
+def dfmd_psf_to_ngmix_obs(dfmd_psf) -> Observation:
+    psf = Observation(
+        image=np.array(dfmd_psf.image),
+        jacobian=ngmix.jacobian.Jacobian(
+            row=dfmd_psf.wcs.origin.y - 1,
+            col=dfmd_psf.wcs.origin.x - 1,
+            dudcol=dfmd_psf.wcs.dudx,
+            dudrow=dfmd_psf.wcs.dudy,
+            dvdcol=dfmd_psf.wcs.dvdx,
+            dvdrow=dfmd_psf.wcs.dvdy,
+        ),
+        meta=dfmd_psf.meta,
+        store_pixels=np.array(dfmd_psf.store_pixels, dtype=np.bool_),
+        ignore_zero_weight=np.array(dfmd_psf.ignore_zero_weight, dtype=np.bool_),
+    )
+    return psf
+
+
 def dfmd_obs_to_ngmix_obs(dfmd_obs) -> Observation:
     psf = None
     if dfmd_obs.psf is not None:
-        psf = dfmd_obs_to_ngmix_obs(dfmd_obs.psf)
+        psf = dfmd_psf_to_ngmix_obs(dfmd_obs.psf)
+
+    bmask = np.array(dfmd_obs.bmask)
+    ormask = np.array(dfmd_obs.ormask)
+    noise = np.array(dfmd_obs.noise) if dfmd_obs.has_noise() else None
+    mfrac = np.array(dfmd_obs.mfrac)
+
     return Observation(
         image=np.array(dfmd_obs.image),
         weight=np.array(dfmd_obs.weight),
-        bmask=dfmd_obs.bmask,
-        ormask=dfmd_obs.ormask,
-        noise=dfmd_obs.noise if dfmd_obs.noise is None else np.array(dfmd_obs.noise),
+        bmask=bmask,
+        ormask=ormask,
+        noise=noise,
         jacobian=ngmix.jacobian.Jacobian(
             row=dfmd_obs.wcs.origin.y - 1,
             col=dfmd_obs.wcs.origin.x - 1,
@@ -118,7 +281,7 @@ def dfmd_obs_to_ngmix_obs(dfmd_obs) -> Observation:
             dvdrow=dfmd_obs.wcs.dvdy,
         ),
         psf=psf,
-        mfrac=dfmd_obs.mfrac if dfmd_obs.mfrac is None else np.array(dfmd_obs.mfrac),
+        mfrac=mfrac,
         meta=dfmd_obs.meta,
         store_pixels=np.array(dfmd_obs.store_pixels, dtype=np.bool_),
         ignore_zero_weight=np.array(dfmd_obs.ignore_zero_weight, dtype=np.bool_),
