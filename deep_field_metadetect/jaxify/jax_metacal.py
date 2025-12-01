@@ -351,7 +351,7 @@ def jax_match_psf(
     )
 
 
-def _extract_attr(obs, attr, dtype=jnp.float64):
+def _extract_attr(obs, attr, dtype=np.float32):
     if getattr(obs, "has_" + attr)():
         return getattr(obs, attr)
     else:
