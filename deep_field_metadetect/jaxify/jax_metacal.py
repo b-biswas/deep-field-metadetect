@@ -358,7 +358,28 @@ def _extract_attr(obs, attr, dtype=np.float32):
         return np.zeros_like(obs.image, dtype=dtype)
 
 
-@partial(jax.jit, static_argnames=["ignore_psf", "skip_mfrac_for_second"])
+def jax_add_dfmd_psf(psf1, psf2):
+    """Add two DFMdetPSF objects"""
+    from deep_field_metadetect.jaxify.observation import DFMdetPSF
+
+    added_image = psf1.image + psf2.image
+
+    new_wgt = jnp.where(
+        (psf1.weight > 0) & (psf2.weight > 0),
+        1 / (1 / psf1.weight + 1 / psf2.weight),
+        0,
+    )
+
+    return DFMdetPSF(
+        image=added_image,
+        weight=new_wgt,
+        wcs=psf1.wcs,  # Assume same WCS
+        meta={**psf1.meta, **psf2.meta},
+        store_pixels=psf1.store_pixels,
+        ignore_zero_weight=psf1.ignore_zero_weight,
+    )
+
+
 def jax_add_dfmd_obs(
     dfmd_obs1, dfmd_obs2, ignore_psf=False, skip_mfrac_for_second=False
 ) -> DFMdetObservation:
