@@ -326,7 +326,9 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_wide():
         n_objs=10,
         return_dfmd_obs=True,
     )
-    obs_w = obs_w._replace(mfrac=rng.uniform(0.5, 0.7, size=obs_w.image.shape))
+    obs_w = obs_w._replace(
+        mfrac=np.float32(rng.uniform(0.5, 0.7, size=obs_w.image.shape))
+    )
 
     res, _ = jax_single_band_deep_field_metadetect(
         obs_w,
@@ -366,7 +368,9 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_deep():
         n_objs=10,
         return_dfmd_obs=True,
     )
-    obs_d = obs_d._replace(mfrac=rng.uniform(0.5, 0.7, size=obs_w.image.shape))
+    obs_d = obs_d._replace(
+        mfrac=np.float32(rng.uniform(0.5, 0.7, size=obs_w.image.shape))
+    )
 
     res, _ = jax_single_band_deep_field_metadetect(
         obs_w,
