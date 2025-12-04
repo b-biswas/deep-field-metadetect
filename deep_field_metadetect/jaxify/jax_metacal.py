@@ -65,12 +65,14 @@ def jax_get_gauss_reconv_psf_galsim(
     small_kval = 1.0e-2  # Find the k where the given psf hits this kvalue
     smaller_kval = 3.0e-3  # Target PSF will have this kvalue at the same k
 
+    """
+    The dk and kim_size is set for jitting purposes.
+    This will lead to a differnce in reconv psf size between GS and JGS
+    if similar settings are not used."""
     if kim_size is None:
         kim = psf.drawKImage(nx=4 * nxy_psf, ny=4 * nxy_psf, scale=dk)
     else:
         kim = psf.drawKImage(nx=kim_size, ny=kim_size, scale=dk)
-
-    # This will lead to a differnce in reconv psf size between GS and JGS
 
     karr_r = kim.real.array
     # Find the smallest r where the kval < small_kval
@@ -133,8 +135,8 @@ def _jax_render_psf_and_build_obs(
         ny=nxy_psf,
         wcs=dfmd_obs.psf.wcs._local_wcs,
         offset=jax_galsim.PositionD(
-            x=dfmd_obs.psf.wcs.origin.x - nxy_psf / 2,
-            y=dfmd_obs.psf.wcs.origin.y - nxy_psf / 2,
+            x=dfmd_obs.psf.wcs.origin.x - (nxy_psf + 1) / 2,
+            y=dfmd_obs.psf.wcs.origin.y - (nxy_psf + 1) / 2,
         ),
     ).array
 

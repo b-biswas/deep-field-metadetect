@@ -53,8 +53,20 @@ class DFMdetPSF:
             ignore_zero_weight=aux_data[3],
         )
 
+    def has_bmask(self):
+        return False
+
+    def has_mfrac(self):
+        return False
+
+    def has_noise(self):
+        return False
+
+    def has_ormask(self):
+        return False
+
     def has_psf(self):
-        return jnp.any(self.image != 0)
+        return False
 
     @jax.jit
     def _replace(self, **kwargs):
@@ -96,7 +108,7 @@ class DFMdetObservation:
         if noise is None:
             noise = jnp.zeros_like(image, dtype=jnp.float32)
         if mfrac is None:
-            mfrac = jnp.ones_like(image, dtype=jnp.float32)
+            mfrac = jnp.zeros_like(image, dtype=jnp.float32)
         if meta is None:
             meta = {}
 
@@ -156,16 +168,16 @@ class DFMdetObservation:
         )
 
     def has_bmask(self):
-        return jnp.any(self.bmask != 0)
+        return True
 
     def has_mfrac(self):
-        return jnp.any(self.mfrac != 1)
+        return True
 
     def has_noise(self):
-        return jnp.any(self.noise != 0)
+        return True
 
     def has_ormask(self):
-        return jnp.any(self.ormask != 0)
+        return True
 
     def has_psf(self):
         return jnp.any(self.psf.image != 0)
