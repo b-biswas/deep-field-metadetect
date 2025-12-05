@@ -17,6 +17,26 @@ DEFAULT_FFT_SIZE = 256
 
 
 def get_shear_tuple(shear, step):
+    """Convert shear string identifier to (g1, g2) tuple.
+
+    Parameters
+    ----------
+    shear : str
+        Shear identifier. Valid values are:
+        - "noshear": No shear applied
+        - "1p": Positive shear in g1 direction
+        - "1m": Negative shear in g1 direction
+        - "2p": Positive shear in g2 direction
+        - "2m": Negative shear in g2 direction
+    step : float
+        Magnitude of the shear step to apply.
+        Defaults to DEFAULT_STEP.
+
+    Returns
+    -------
+    tuple of float
+        Two-element tuple (g1, g2) representing the shear components.
+    """
     if shear == "noshear":
         return (0, 0)
     elif shear == "1p":
@@ -28,7 +48,7 @@ def get_shear_tuple(shear, step):
     elif shear == "2m":
         return (0, -step)
     else:
-        raise RuntimeError("Shear value '%s' not regonized!" % shear)
+        raise RuntimeError("Shear value '%s' not recognized!" % shear)
 
 
 @partial(jax.jit, static_argnames=["dk", "nxy_psf", "kim_size"])
@@ -39,6 +59,7 @@ def jax_get_gauss_reconv_psf_galsim(
 
     This is taken from galsim/tests/test_metacal.py and assumes the psf is
     centered.
+    Note: Order of paramter differs from the corresponding non-jax versions
 
     Parameters
     ----------
@@ -48,9 +69,10 @@ def jax_get_gauss_reconv_psf_galsim(
         The Fourier-space pixel scale.
     nxy_psf : int, optional
         The size of the PSF image in pixels (default is 53).
-        Used to set k_image size, but is overridden if kim_size is passed.
     step : float, optional
-        The step size for coordinate grids (default is `DEFAULT_STEP`).
+        Factor by which to expand the PSF to supress noise from high-k
+        fourirer modes introduced due to shearing of pre-PSF images.
+        Defaults to deep_field_metadetect.metacal.DEFAULT_STEP.
     flux : float, optional
         The total flux of the output PSF (default is 1).
     kim_size : int
@@ -92,7 +114,26 @@ def jax_get_gauss_reconv_psf_galsim(
 
 @partial(jax.jit, static_argnames=["dk", "nxy_psf"])
 def jax_get_gauss_reconv_psf(dfmd_obs, nxy_psf, dk, step=DEFAULT_STEP):
-    """Get the Gaussian reconv PSF for a DFMdetObs."""
+    """Get the Gaussian reconv PSF for a DFMdetObs.
+
+    Parameters
+    ----------
+    dfmd_obs : DFMdetObservation
+        The observation containing the PSF to process.
+    nxy_psf : int
+        Size of the PSF image in pixels.
+    dk : float
+        Fourier-space pixel scale.
+    step : float, optional
+        Factor by which to expand the PSF to supress noise from high-k
+        fourirer modes introduced due to shearing of pre-PSF images.
+        Defaults to DEFAULT_STEP.
+
+    Returns
+    -------
+    jax_galsim.Gaussian
+        The Gaussian reconvolution PSF object.
+    """
     psf = get_jax_galsim_object_from_dfmd_obs_nopix(dfmd_obs.psf, kind="image")
     return jax_get_gauss_reconv_psf_galsim(psf, nxy_psf=nxy_psf, dk=dk, step=step)
 
@@ -189,7 +230,28 @@ def _jax_metacal_op_g1g2_impl(
 def jax_metacal_op_g1g2(
     dfmd_obs, reconv_psf, g1, g2, nxy_psf, fft_size=DEFAULT_FFT_SIZE
 ):
-    """Run metacal on an dfmd obs."""
+    """Run metacal on an dfmd observation with specified shear.
+
+    Parameters
+    ----------
+    dfmd_obs : DFMdetObservation
+        The observation to process.
+    reconv_psf : jax_galsim.GSObject
+        The reconvolution PSF object.
+    g1 : float
+        g1 shear components to apply.
+    g2 : float
+        g2 shear components to apply.
+    nxy_psf : int
+        Size of the PSF image in pixels.
+    fft_size : int, optional
+        FFT size for convolution operations (default is DEFAULT_FFT_SIZE).
+
+    Returns
+    -------
+    DFMdetObservation
+        New observation with metacal applied.
+    """
     mcal_image = _jax_metacal_op_g1g2_impl(
         wcs=dfmd_obs.wcs._local_wcs,
         image=get_jax_galsim_object_from_dfmd_obs(dfmd_obs, kind="image"),
@@ -220,13 +282,38 @@ def jax_metacal_op_g1g2(
 def jax_metacal_op_shears(
     dfmd_obs,
     nxy_psf=53,
-    reconv_psf=jax_galsim.Gaussian(sigma=0.001).withFlux(1.0),
+    reconv_psf=jax_galsim.Gaussian(sigma=0.0).withFlux(1.0),
     shears=DEFAULT_SHEARS,
     step=DEFAULT_STEP,
     scale=0.2,
     fft_size=DEFAULT_FFT_SIZE,
 ):
-    """Run metacal on an dfmd observation."""
+    """Run metacal on an dfmd observation with multiple shear values.
+
+    Parameters
+    ----------
+    dfmd_obs : DFMdetObservation
+        The observation to process.
+    nxy_psf : int, optional
+        Size of the PSF image in pixels (default is 53).
+    reconv_psf : jax_galsim.GSObject, optional
+        The reconvolution PSF.
+        Default: a proper reconvolution PSF will be computed automatically.
+        using jax_get_gauss_reconv_psf function.
+    shears : tuple of str, optional
+        Shear identifiers to process (default is DEFAULT_SHEARS).
+    step : float, optional
+        Shear step magnitude (default is DEFAULT_STEP).
+    scale : float, optional
+        Pixel scale in arcseconds (default is 0.2).
+    fft_size : int, optional
+        FFT size for convolution operations (default is DEFAULT_FFT_SIZE).
+
+    Returns
+    -------
+    dict
+        Dictionary mapping shear identifiers to processed DFMdetObservation objects.
+    """
     dk = compute_stepk(pixel_scale=scale, image_size=nxy_psf)
 
     def compute_reconv():
@@ -236,7 +323,7 @@ def jax_metacal_op_shears(
         return reconv_psf
 
     reconv_psf = jax.lax.cond(
-        reconv_psf.sigma == 0.001, compute_reconv, use_provided_reconv
+        reconv_psf.sigma == 0, compute_reconv, use_provided_reconv
     )
     wcs = dfmd_obs.wcs._local_wcs
     image = get_jax_galsim_object_from_dfmd_obs(dfmd_obs, kind="image")
@@ -420,7 +507,7 @@ def jax_add_dfmd_obs(
     # Add PSFs if both exist and we're not ignoring PSF
     has_psf1 = dfmd_obs1.has_psf()
     has_psf2 = dfmd_obs2.has_psf()
-    should_add_psf = (~ignore_psf) & has_psf1 & has_psf2
+    should_add_psf = (not ignore_psf) & has_psf1 & has_psf2
 
     new_psf = jax.lax.cond(should_add_psf, add_psfs, no_psf)
 
