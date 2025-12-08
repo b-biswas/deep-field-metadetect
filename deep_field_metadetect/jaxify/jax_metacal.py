@@ -425,19 +425,14 @@ def jax_match_psf(
     )
     ims = ims.drawImage(nx=nxy, ny=nxy, wcs=wcs).array
 
-    def return_obs_and_kinfo(_):
+    if return_k_info:
         return _jax_render_psf_and_build_obs(
             ims, dfmd_obs, reconv_psf, nxy_psf, weight_fac=1
         ), (image.stepk, image.maxk, psf.stepk, psf.maxk)
-
-    def return_obs_only(_):
+    else:
         return _jax_render_psf_and_build_obs(
             ims, dfmd_obs, reconv_psf, nxy_psf, weight_fac=1
-        ), (0.0, 0.0, 0.0, 0.0)
-
-    return jax.lax.cond(
-        return_k_info, return_obs_and_kinfo, return_obs_only, operand=None
-    )
+        ), (np.nan, np.nan, np.nan, np.nan)
 
 
 def _extract_attr(obs, attr, dtype=np.float32):
