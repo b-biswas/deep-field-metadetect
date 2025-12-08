@@ -31,8 +31,14 @@ def get_gauss_reconv_psf_galsim(psf, step=DEFAULT_STEP, flux=1, dk=None, kim_siz
     ----------
     psf : galsim object
         The PSF.
+    step : float, optional
+        Factor by which to expand the PSF to supress noise from high-k
+        fourirer modes introduced due to shearing of pre-PSF images.
+        Defaults to deep_field_metadetect.metacal.DEFAULT_STEP.
     flux : float
         The output flux of the PSF. Defaults to 1.
+    dk : float
+        The Fourier-space pixel scale.
     kim_size : int
         k image size.
         Defaults to None, which lets galsim set the size
@@ -257,11 +263,8 @@ def match_psf(
             psf._maxk,
         )
 
-    return (
-        _render_psf_and_build_obs(
-            ims, obs, reconv_psf, weight_fac=1, fft_size=fft_size
-        ),
-        None,
+    return _render_psf_and_build_obs(
+        ims, obs, reconv_psf, weight_fac=1, fft_size=fft_size
     )
 
 
@@ -399,19 +402,19 @@ def metacal_wide_and_deep_psf_matched(
         The deep-field observation.
     obs_deep_noise : ngmix.Observation
         The deep-field noise observation.
-    step : float, optional
-        The step size for the metacalibration, by default DEFAULT_STEP.
     shears : list, optional
         The shears to use for the metacalibration, by default DEFAULT_SHEARS
         if set to None.
+    step : float, optional
+        The step size for the metacalibration, by default DEFAULT_STEP.
     skip_obs_wide_corrections : bool, optional
         Skip the observation corrections for the wide-field observations,
         by default False.
     skip_obs_deep_corrections : bool, optional
         Skip the observation corrections for the deep-field observations,
         by default False.
-    nodet_flags : int, optional
-        The bmask flags marking area in the image to skip, by default 0.
+    return_noshear_deep : bool, optional
+        adds deep field no shear results to the output. Default - False.
     return_k_info : bool, optional
         return _force stepk and maxk values in the following order
         _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
@@ -440,16 +443,16 @@ def metacal_wide_and_deep_psf_matched(
     Returns
     -------
     mcal_res : dict
-        Output from metacal_op_shears.
-    kinfo: tuple, optional
-        returns _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf
-        if return_k_into is True, else returns None.
-        Used mainly for testing.
+        Output from metacal_op_shears for shear cases listed by the shears input,
+        optionaly no shear deep field case if return_noshear_deep is True
+        and kinfo for debugging if return_k_info is set to True.
+        kinfo is returned in the following order:
+        _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
     """
 
     # first get the biggest reconv PSF of the two
     reconv_psf = get_max_gauss_reconv_psf(obs_wide, obs_deep)
-    mcal_obs_wide, kinfo = match_psf(
+    mcal_obs_wide = match_psf(
         obs_wide,
         reconv_psf,
         return_k_info=return_k_info,
@@ -459,7 +462,9 @@ def metacal_wide_and_deep_psf_matched(
         force_maxk_psf=force_maxk_psf,
         fft_size=fft_size,
     )
+
     if return_k_info:
+        mcal_obs_wide, kinfo = mcal_obs_wide
         force_stepk_field, force_maxk_field, force_stepk_psf, force_maxk_psf = kinfo
 
     if not skip_obs_wide_corrections:
@@ -472,7 +477,7 @@ def metacal_wide_and_deep_psf_matched(
     # get PSF matched noise
     obs_wide_noise = obs_wide.copy()
     obs_wide_noise.image = obs_wide.noise
-    wide_noise_corr, _ = match_psf(
+    wide_noise_corr = match_psf(
         obs_wide_noise,
         reconv_psf,
         force_stepk_field=force_stepk_field,
@@ -510,4 +515,7 @@ def metacal_wide_and_deep_psf_matched(
     for k in mcal_res:
         mcal_res[k].psf.galsim_obj = reconv_psf
 
-    return mcal_res, kinfo
+    if return_k_info:
+        mcal_res["kinfo"] = kinfo
+
+    return mcal_res

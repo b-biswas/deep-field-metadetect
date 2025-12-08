@@ -81,18 +81,18 @@ def single_band_deep_field_metadetect(
 
     Returns
     -------
-    dfmdet_res : dict
-        The deep-field metadetection results, a dictionary with keys from `shears`
-        and values containing the detection+measurement results for the corresponding
-        shear.
-    kinfo: tuple, optional
-        returns _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf
-        if return_k_info is True. Used for testing.
+    dfmdet_res : numpy.ndarray
+        The deep-field metadetection results as a structured array containing
+        detection and measurement results for all shears.
+
+    Note: is return_k_info is set to True for debugging,
+    This function returns a dict containing dfmdet_res and kinfo. kinfo being:
+    (_force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf)
     """
     if shears is None:
         shears = DEFAULT_SHEARS
 
-    mcal_res, kinfo = metacal_wide_and_deep_psf_matched(
+    mcal_res = metacal_wide_and_deep_psf_matched(
         obs_wide,
         obs_deep,
         obs_deep_noise,
@@ -110,7 +110,8 @@ def single_band_deep_field_metadetect(
 
     psf_res = fit_gauss_mom_obs(mcal_res["noshear"].psf)
     dfmdet_res = []
-    for shear, obs in mcal_res.items():
+    for shear in shears:
+        obs = mcal_res[shear]
         detres = run_detection_sep(obs, nodet_flags=nodet_flags)
 
         ixc = (detres["catalog"]["x"] + 0.5).astype(int)
@@ -151,6 +152,10 @@ def single_band_deep_field_metadetect(
     ] + fres.dtype.descr
 
     if return_k_info:
-        return np.array(dfmdet_res, dtype=total_dtype), kinfo
+        result = {
+            "mdetect_res": np.array(dfmdet_res, dtype=total_dtype),
+            "kinfo": mcal_res.get("kinfo") if return_k_info else None,
+        }
+        return result
 
-    return np.array(dfmdet_res, dtype=total_dtype), None
+    return np.array(dfmdet_res, dtype=total_dtype)

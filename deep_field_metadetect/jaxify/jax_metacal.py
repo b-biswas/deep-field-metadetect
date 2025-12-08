@@ -680,7 +680,10 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
     if return_noshear_deep:
         mcal_res["noshear_deep"] = noshear_res
 
-    return mcal_res, kinfo
+    if return_k_info:
+        mcal_res["kinfo"] = kinfo
+
+    return mcal_res
 
 
 def jax_metacal_wide_and_deep_psf_matched(
@@ -702,12 +705,74 @@ def jax_metacal_wide_and_deep_psf_matched(
     force_maxk_psf=0.0,
     fft_size=DEFAULT_FFT_SIZE,
 ):
-    """Do metacalibration for a combination of wide+deep datasets."""
+    """Do metacalibration for a combination of wide+deep datasets.
 
+    Parameters
+    ----------
+    obs_wide : ngmix.Observation
+        The wide-field observation.
+    obs_deep : ngmix.Observation
+        The deep-field observation.
+    obs_deep_noise : ngmix.Observation
+        The deep-field noise observation.
+    shears : list, optional
+        The shears to use for the metacalibration, by default DEFAULT_SHEARS
+        if set to None.
+    step : float, optional
+        The step size for the metacalibration, by default DEFAULT_STEP.
+    skip_obs_wide_corrections : bool, optional
+        Skip the observation corrections for the wide-field observations,
+        by default False.
+    skip_obs_deep_corrections : bool, optional
+        Skip the observation corrections for the deep-field observations,
+        by default False.
+    return_noshear_deep : bool, optional
+        adds deep field no shear results to the output. Default - False.
+        This is a static variable so changing it would trigger recompilation.
+    scale : float, optional
+        pixel scale. default to 0.2.
+        Note this parameter is not present in non-jax version.
+        This is later used for compute_stepk to compute the pixel scale in
+        fourier space and this is a static variable so changing it would
+        trigger recompilation.
+    return_k_info : bool, optional
+        return _force stepk and maxk values in the following order
+        _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
+        Used mainly for testing.
+    force_stepk_field : float, optional
+        Force stepk for drawing field images.
+        Defaults to 0.0, which lets JaxGalsim choose the value.
+        Used mainly for testing.
+    force_maxk_field: float, optional
+        Force maxk for drawing field images.
+        Defaults to 0.0, which lets Galsim choose the value.
+        Used mainly for testing.
+    force_stepk_psf: float, optional
+        Force stepk for drawing PSF images.
+        Defaults to 0.0, which lets Galsim choose the value.
+        Used mainly for testing.
+    force_maxk_psf: float, optional
+        Force stepk for drawing PSF images
+        Defaults to 0.0, which lets Galsim choose the value.
+        Used mainly for testing.
+    fft_size: int, optional
+        To fix max and min values of FFT size.
+        Defaults to None which lets Galsim determine the values.
+        Used mainly to test against JaxGalsim.
+
+    Returns
+    -------
+    mcal_res : dict
+        Output from metacal_op_shears for shear cases listed by the shears input,
+        optionaly no shear deep field case if return_noshear_deep is True
+        and kinfo for debugging if return_k_info is set to True.
+        kinfo is returned in the following order:
+        _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
+    """
     # first get the biggest reconv PSF of the two
     reconv_psf = jax_get_max_gauss_reconv_psf(obs_wide, obs_deep, nxy_psf, scale)
 
-    mcal_res, kinfo = _jax_helper_metacal_wide_and_deep_psf_matched(
+    mcal_res = _jax_helper_metacal_wide_and_deep_psf_matched(
         obs_wide=obs_wide,
         obs_deep=obs_deep,
         obs_deep_noise=obs_deep_noise,
@@ -728,8 +793,8 @@ def jax_metacal_wide_and_deep_psf_matched(
         fft_size=fft_size,
     )
 
-    for k in mcal_res:
+    for k in shears:
         mcal_res[k] = dfmd_obs_to_ngmix_obs(mcal_res[k])
         mcal_res[k].psf.galsim_obj = reconv_psf
 
-    return mcal_res, kinfo
+    return mcal_res

@@ -48,7 +48,7 @@ def _run_single_sim(
         return_dfmd_obs=True,
     )
 
-    res, _ = jax_single_band_deep_field_metadetect(
+    res = jax_single_band_deep_field_metadetect(
         obs_w,
         obs_d,
         obs_dn,
@@ -134,7 +134,7 @@ def _run_single_sim_jax_and_ngmix(
         fft_size=DEFAULT_FFT_SIZE,
     )
 
-    res, kinfo = jax_single_band_deep_field_metadetect(
+    results = jax_single_band_deep_field_metadetect(
         obs_w,
         obs_d,
         obs_dn,
@@ -150,6 +150,9 @@ def _run_single_sim_jax_and_ngmix(
         force_maxk_psf=force_maxk_psf,
         fft_size=DEFAULT_FFT_SIZE,
     )
+
+    res = results["mdetect_res"]
+    kinfo = results["kinfo"]
 
     assert kinfo[0] == force_stepk_field
     assert kinfo[1] == force_maxk_field
@@ -282,7 +285,7 @@ def test_metadetect_single_band_deep_field_metadetect_bmask():
         bmask=rng.choice([0, 1, 3], p=[0.5, 0.25, 0.25], size=obs_w.image.shape)
     )
 
-    res, _ = jax_single_band_deep_field_metadetect(
+    res = jax_single_band_deep_field_metadetect(
         obs_w,
         obs_d,
         obs_dn,
@@ -330,7 +333,7 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_wide():
         mfrac=np.float32(rng.uniform(0.5, 0.7, size=obs_w.image.shape))
     )
 
-    res, _ = jax_single_band_deep_field_metadetect(
+    res = jax_single_band_deep_field_metadetect(
         obs_w,
         obs_d,
         obs_dn,
@@ -372,7 +375,7 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_deep():
         mfrac=np.float32(rng.uniform(0.5, 0.7, size=obs_w.image.shape))
     )
 
-    res, _ = jax_single_band_deep_field_metadetect(
+    res = jax_single_band_deep_field_metadetect(
         obs_w,
         obs_d,
         obs_dn,
