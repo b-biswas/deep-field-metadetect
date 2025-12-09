@@ -184,8 +184,8 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_deep():
         force_maxk_psf=12.640001692177682,
     )
 
-    res = results["dfmdet_res"]
-    kinfo = results["kinfo"]
+    res = results[0]
+    kinfo = results[1]
 
     assert kinfo[0] == 0.12403490725241548
     assert kinfo[1] == 8.160777791551611

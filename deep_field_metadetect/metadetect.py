@@ -85,8 +85,8 @@ def single_band_deep_field_metadetect(
         The deep-field metadetection results as a structured array containing
         detection and measurement results for all shears.
 
-    Note: is return_k_info is set to True for debugging,
-    This function returns a dict containing dfmdet_res and kinfo. kinfo being:
+    Note: If return_k_info is set to True for debugging,
+    this function returns a tuple containing (dfmdet_res, kinfo). kinfo being:
     (_force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf)
     """
     if shears is None:
@@ -152,10 +152,6 @@ def single_band_deep_field_metadetect(
     ] + fres.dtype.descr
 
     if return_k_info:
-        result = {
-            "dfmdet_res": np.array(dfmdet_res, dtype=total_dtype),
-            "kinfo": mcal_res.get("kinfo") if return_k_info else None,
-        }
-        return result
+        return (np.array(dfmdet_res, dtype=total_dtype), mcal_res.get("kinfo"))
 
     return np.array(dfmdet_res, dtype=total_dtype)
