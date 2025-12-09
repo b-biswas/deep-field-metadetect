@@ -649,7 +649,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
         fourier space and this is a static variable so changing it would
         trigger recompilation.
     return_k_info : bool, optional
-        return _force stepk and maxk values in the following order
+        return _force_stepk and _force_maxk values in the following order
         _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
         Used mainly for testing.
     force_stepk_field : float, optional
@@ -800,7 +800,7 @@ def jax_metacal_wide_and_deep_psf_matched(
         fourier space and this is a static variable so changing it would
         trigger recompilation.
     return_k_info : bool, optional
-        return _force stepk and maxk values in the following order
+        return _force_stepk and _force_maxk values in the following order
         _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
         Used mainly for testing.
     force_stepk_field : float, optional

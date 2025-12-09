@@ -153,7 +153,7 @@ def single_band_deep_field_metadetect(
 
     if return_k_info:
         result = {
-            "mdetect_res": np.array(dfmdet_res, dtype=total_dtype),
+            "dfmdet_res": np.array(dfmdet_res, dtype=total_dtype),
             "kinfo": mcal_res.get("kinfo") if return_k_info else None,
         }
         return result

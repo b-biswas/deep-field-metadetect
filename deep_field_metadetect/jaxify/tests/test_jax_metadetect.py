@@ -121,10 +121,7 @@ def _run_single_sim_jax_and_ngmix(
     obs_d = ngmix_obs_to_dfmd_obs(obs_d_ngmix)
     obs_dn = ngmix_obs_to_dfmd_obs(obs_dn_ngmix)
 
-    (
-        res_ngmix,
-        (force_stepk_field, force_maxk_field, force_stepk_psf, force_maxk_psf),
-    ) = single_band_deep_field_metadetect(
+    non_jax_results = single_band_deep_field_metadetect(
         obs_w_ngmix,
         obs_d_ngmix,
         obs_dn_ngmix,
@@ -132,6 +129,11 @@ def _run_single_sim_jax_and_ngmix(
         skip_obs_deep_corrections=skip_deep,
         return_k_info=True,
         fft_size=DEFAULT_FFT_SIZE,
+    )
+
+    res_ngmix = non_jax_results["dfmdet_res"]
+    (force_stepk_field, force_maxk_field, force_stepk_psf, force_maxk_psf) = (
+        non_jax_results["kinfo"]
     )
 
     results = jax_single_band_deep_field_metadetect(
@@ -151,7 +153,7 @@ def _run_single_sim_jax_and_ngmix(
         fft_size=DEFAULT_FFT_SIZE,
     )
 
-    res = results["mdetect_res"]
+    res = results["dfmdet_res"]
     kinfo = results["kinfo"]
 
     assert kinfo[0] == force_stepk_field

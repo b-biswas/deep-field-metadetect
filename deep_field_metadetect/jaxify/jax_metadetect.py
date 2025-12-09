@@ -33,7 +33,7 @@ def jax_single_band_deep_field_metadetect(
     force_stepk_psf=0.0,
     force_maxk_psf=0.0,
     fft_size=DEFAULT_FFT_SIZE,
-) -> dict:
+):
     """Run deep-field metadetection for a simple scenario of a single band
     with a single image per band using only post-PSF Gaussian weighted moments.
 
@@ -64,6 +64,36 @@ def jax_single_band_deep_field_metadetect(
         The bmask flags marking area in the image to skip, by default 0.
     scale: float
         pixel scale
+    scale : float, optional
+        pixel scale. default to 0.2.
+        Note this parameter is not present in non-jax version.
+        This is later used for compute_stepk to compute the pixel scale in
+        fourier space and this is a static variable so changing it would
+        trigger recompilation.
+    return_k_info : bool, optional
+        return _force stepk and maxk values in the following order
+        _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
+        Used mainly for testing.
+    force_stepk_field : float, optional
+        Force stepk for drawing field images.
+        Defaults to 0.0, which lets JaxGalsim choose the value.
+        Used mainly for testing.
+    force_maxk_field: float, optional
+        Force maxk for drawing field images.
+        Defaults to 0.0, which lets Galsim choose the value.
+        Used mainly for testing.
+    force_stepk_psf: float, optional
+        Force stepk for drawing PSF images.
+        Defaults to 0.0, which lets Galsim choose the value.
+        Used mainly for testing.
+    force_maxk_psf: float, optional
+        Force stepk for drawing PSF images
+        Defaults to 0.0, which lets Galsim choose the value.
+        Used mainly for testing.
+    fft_size: int, optional
+        To fix max and min values of FFT size.
+        Defaults to None which lets Galsim determine the values.
+        Used mainly to test against JaxGalsim.
 
     Returns
     -------
@@ -142,7 +172,7 @@ def jax_single_band_deep_field_metadetect(
 
     if return_k_info:
         result = {
-            "mdetect_res": np.array(dfmdet_res, dtype=total_dtype),
+            "dfmdet_res": np.array(dfmdet_res, dtype=total_dtype),
             "kinfo": mcal_res.get("kinfo") if return_k_info else None,
         }
         return result
