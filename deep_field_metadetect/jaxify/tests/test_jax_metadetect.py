@@ -283,7 +283,7 @@ def test_metadetect_single_band_deep_field_metadetect_bmask():
         n_objs=10,
         return_dfmd_obs=True,
     )
-    obs_w = obs_w._replace(
+    obs_w = obs_w.replace(
         bmask=rng.choice([0, 1, 3], p=[0.5, 0.25, 0.25], size=obs_w.image.shape)
     )
 
@@ -331,7 +331,7 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_wide():
         n_objs=10,
         return_dfmd_obs=True,
     )
-    obs_w = obs_w._replace(
+    obs_w = obs_w.replace(
         mfrac=np.float32(rng.uniform(0.5, 0.7, size=obs_w.image.shape))
     )
 
@@ -373,7 +373,7 @@ def test_metadetect_single_band_deep_field_metadetect_mfrac_deep():
         n_objs=10,
         return_dfmd_obs=True,
     )
-    obs_d = obs_d._replace(
+    obs_d = obs_d.replace(
         mfrac=np.float32(rng.uniform(0.5, 0.7, size=obs_w.image.shape))
     )
 
