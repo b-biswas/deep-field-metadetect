@@ -60,7 +60,7 @@ def single_band_deep_field_metadetect(
         Used mainly for testing.
     force_stepk_field : float, optional
         Force stepk for drawing field images.
-        Defaults to 0.0, which lets JaxGalsim choose the value.
+        Defaults to 0.0, which lets Galsim choose the value.
         Used mainly for testing.
     force_maxk_field: float, optional
         Force maxk for drawing field images.
@@ -77,7 +77,7 @@ def single_band_deep_field_metadetect(
     fft_size: int, optional
         To fix max and min values of FFT size.
         Defaults to None which lets Galsim determine the values.
-        Used mainly to test against JaxGalsim.
+        Used mainly to test against Galsim.
 
     Returns
     -------
