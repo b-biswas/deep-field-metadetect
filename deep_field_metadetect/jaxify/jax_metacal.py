@@ -754,7 +754,6 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
     )
 
     # now add in noise corr to make it match the wide noise
-    # TODO: To vectorize, need to change output type of jax_metacal_op_shears
     if not skip_obs_deep_corrections:
         for k in shears:
             mcal_res[k] = jax_add_dfmd_obs(
