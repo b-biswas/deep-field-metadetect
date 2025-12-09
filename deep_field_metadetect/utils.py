@@ -9,7 +9,9 @@ from ngmix.gaussmom import GaussMom
 
 from deep_field_metadetect.jaxify.observation import (
     DFMdetObservation,
+    DFMdetPSF,
     dfmd_obs_to_ngmix_obs,
+    dfmd_psf_to_ngmix_obs,
     ngmix_obs_to_dfmd_obs,
 )
 from deep_field_metadetect.metacal import DEFAULT_SHEARS
@@ -304,8 +306,8 @@ def fit_gauss_mom_mcal_res(mcal_res, fwhm=1.2):
     fitter = GaussMom(fwhm)
 
     psf = mcal_res["noshear"].psf
-    if isinstance(psf, DFMdetObservation):
-        psf = dfmd_obs_to_ngmix_obs(mcal_res["noshear"].psf)
+    if isinstance(psf, DFMdetPSF):
+        psf = dfmd_psf_to_ngmix_obs(mcal_res["noshear"].psf)
 
     psf_res = fitter.go(psf)
 
@@ -583,6 +585,7 @@ def _make_single_sim(*, dither=None, rng, psf, obj, nse, scale, dim, dim_psf=53)
         bmask=np.zeros_like(im, dtype=np.int32),
         mfrac=np.zeros_like(im),
     )
+
     return obs
 
 
@@ -709,6 +712,7 @@ def make_simple_sim(
         dim=dim,
         dim_psf=dim_psf,
     )
+
     if return_dfmd_obs:
         return (
             ngmix_obs_to_dfmd_obs(obs_wide),
