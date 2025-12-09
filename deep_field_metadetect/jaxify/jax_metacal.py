@@ -174,7 +174,7 @@ def _jax_render_psf_and_build_obs(
     pim = reconv_psf.drawImage(
         nx=nxy_psf,
         ny=nxy_psf,
-        wcs=dfmd_obs.psf.wcs._local_wcs,
+        wcs=dfmd_obs.psf.wcs.local(),
         offset=jax_galsim.PositionD(
             x=dfmd_obs.psf.wcs.origin.x - (nxy_psf + 1) / 2,
             y=dfmd_obs.psf.wcs.origin.y - (nxy_psf + 1) / 2,
@@ -253,7 +253,7 @@ def jax_metacal_op_g1g2(
         New observation with metacal applied.
     """
     mcal_image = _jax_metacal_op_g1g2_impl(
-        wcs=dfmd_obs.wcs._local_wcs,
+        wcs=dfmd_obs.wcs.local(),
         image=get_jax_galsim_object_from_dfmd_obs(dfmd_obs, kind="image"),
         # we rotate by 90 degrees on the way in and then _metacal_op_g1g2_impl
         # rotates back after deconv and shearing
@@ -325,7 +325,7 @@ def jax_metacal_op_shears(
     reconv_psf = jax.lax.cond(
         reconv_psf.sigma == 0, compute_reconv, use_provided_reconv
     )
-    wcs = dfmd_obs.wcs._local_wcs
+    wcs = dfmd_obs.wcs.local()
     image = get_jax_galsim_object_from_dfmd_obs(dfmd_obs, kind="image")
     # we rotate by 90 degrees on the way in and then _metacal_op_g1g2_impl
     # rotates back after deconv and shearing
@@ -397,7 +397,7 @@ def jax_match_psf(
     fft_size=DEFAULT_FFT_SIZE,
 ):
     """Match the PSF on an dfmd observation to a new PSF."""
-    wcs = dfmd_obs.wcs._local_wcs
+    wcs = dfmd_obs.wcs.local()
     image = get_jax_galsim_object_from_dfmd_obs(
         dfmd_obs,
         kind="image",
@@ -583,10 +583,10 @@ def get_jax_galsim_object_from_dfmd_obs(
     return jax_galsim.InterpolatedImage(
         jax_galsim.ImageD(
             jnp.rot90(getattr(dfmd_obs, kind).copy(), k=rot90),
-            wcs=dfmd_obs.wcs._local_wcs,
+            wcs=dfmd_obs.wcs.local(),
         ),
         x_interpolant="lanczos15",
-        wcs=dfmd_obs.wcs._local_wcs,
+        wcs=dfmd_obs.wcs.local(),
         _force_stepk=force_stepk,
         _force_maxk=force_maxk,
     )
@@ -594,7 +594,7 @@ def get_jax_galsim_object_from_dfmd_obs(
 
 def get_jax_galsim_object_from_dfmd_obs_nopix(dfmd_obs, kind="image"):
     """Make an interpolated image from an DFMdet obs w/o a pixel."""
-    wcs = dfmd_obs.wcs._local_wcs
+    wcs = dfmd_obs.wcs.local()
     return jax_galsim.Convolve(
         [
             get_jax_galsim_object_from_dfmd_obs(dfmd_obs, kind=kind),
