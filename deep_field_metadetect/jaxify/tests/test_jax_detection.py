@@ -354,3 +354,17 @@ def test_watershed_from_peaks_with_invalid():
 
     # Should have exactly 2 regions (for the 2 valid peaks)
     assert len(unique_labels) == 2
+
+
+def test_noise_rejitting():
+    """Test that noise array is used directly when provided."""
+    image = jnp.ones((8, 12))
+    image = image.at[4, 6].set(3.0)  # Different noise at one pixel
+
+    # Create noise array with same shape as image
+    noise_array = jnp.zeros_like(image) + 0.3
+
+    result_array = local_maxima_filter(image, noise=noise_array, window_size=3)
+    result_float = local_maxima_filter(image, noise=0.3, window_size=3)
+
+    assert jnp.all(result_array == result_float)
