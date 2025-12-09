@@ -250,7 +250,7 @@ def watershed_segmentation(
 
     Parameters:
     -----------
-    nverted_image : jnp.ndarray
+    inverted_image : jnp.ndarray
         2D input image with inverted intensity
     noise : jnp.ndarray | float
         Pixelwise noise sigma
