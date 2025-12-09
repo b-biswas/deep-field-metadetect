@@ -73,7 +73,7 @@ class DFMdetPSF:
         return False
 
     @jax.jit
-    def _replace(self, **kwargs):
+    def replace(self, **kwargs):
         """Create a new instance similar to NamedTuple._replace"""
         new_kwargs = {
             "image": self.image,
@@ -191,7 +191,7 @@ class DFMdetObservation:
         return jnp.any(self.psf.image != 0)
 
     @jax.jit
-    def _replace(self, **kwargs):
+    def replace(self, **kwargs):
         """Create a new instance similar to NamedTuple._replace"""
         new_kwargs = {
             "image": self.image,

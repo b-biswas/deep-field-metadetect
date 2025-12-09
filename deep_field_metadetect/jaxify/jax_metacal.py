@@ -181,8 +181,8 @@ def _jax_render_psf_and_build_obs(
         ),
     ).array
 
-    obs_psf = dfmd_obs.psf._replace(image=pim)
-    return dfmd_obs._replace(
+    obs_psf = dfmd_obs.psf.replace(image=pim)
+    return dfmd_obs.replace(
         image=jnp.array(image), psf=obs_psf, weight=dfmd_obs.weight * weight_fac
     )
 
@@ -704,7 +704,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
         )
 
     # get PSF matched noise
-    obs_wide_noise = obs_wide._replace(image=obs_wide.noise)
+    obs_wide_noise = obs_wide.replace(image=obs_wide.noise)
     wide_noise_corr, _ = jax_match_psf(
         obs_wide_noise,
         reconv_psf,
