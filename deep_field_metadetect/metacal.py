@@ -119,7 +119,9 @@ def _render_psf_and_build_obs(image, obs, reconv_psf, weight_fac=1, fft_size=Non
     return obs
 
 
-def _metacal_op_g1g2_impl(*, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g2):
+def _metacal_op_g1g2_impl(
+    *, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g2, fft_size=None
+):
     """Run metacal on an ngmix observation.
 
     Note that the noise image should already be rotated by 90 degrees here.
@@ -138,6 +140,17 @@ def _metacal_op_g1g2_impl(*, wcs, image, noise, psf_inv, dims, reconv_psf, g1, g
             reconv_psf,
         ]
     )
+
+    if fft_size is not None:
+        ims = ims.withGSParams(
+            minimum_fft_size=fft_size,
+            maximum_fft_size=fft_size,
+        )
+
+        ns = ns.withGSParams(
+            minimum_fft_size=fft_size,
+            maximum_fft_size=fft_size,
+        )
 
     ims = ims.drawImage(nx=dims[1], ny=dims[0], wcs=wcs).array
     ns = np.rot90(
@@ -162,6 +175,7 @@ def metacal_op_g1g2(obs, reconv_psf, g1, g2, fft_size=None):
         reconv_psf=reconv_psf,
         g1=g1,
         g2=g2,
+        fft_size=fft_size,
     )
     return _render_psf_and_build_obs(
         mcal_image, obs, reconv_psf, weight_fac=0.5, fft_size=fft_size
@@ -235,18 +249,11 @@ def match_psf(
         _force_maxk=force_maxk_psf,
     )
 
-    if fft_size is None:
-        ims = galsim.Convolve(
-            [image, galsim.Deconvolve(psf), reconv_psf],
-        )
+    ims = galsim.Convolve(
+        [image, galsim.Deconvolve(psf), reconv_psf],
+    )
 
-    else:
-        ims = galsim.Convolve(
-            [image, galsim.Deconvolve(psf), reconv_psf],
-            gsparams=galsim.GSParams(
-                minimum_fft_size=fft_size, maximum_fft_size=fft_size
-            ),
-        )
+    if fft_size is not None:
         ims = ims.withGSParams(
             minimum_fft_size=fft_size,
             maximum_fft_size=fft_size,
