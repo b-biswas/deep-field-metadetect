@@ -2,9 +2,9 @@ import jax.numpy as jnp
 
 
 def compute_stepk(pixel_scale, image_size):
-    """Compute psf fourier scale based on pixel scale and psf image dimension
-    The size if obtained from from galsim.GSObject.getGoodImageSize
-    The factor 1/4 from deep_field_metadetect.metacal.get_gauss_reconv_psf_galsim
+    """Compute psf fourier scale based on pixel scale and PSF image dimension.
+    The size is obtained from galsim.GSObject.getGoodImageSize.
+    The factor 1/4 from deep_field_metadetect.metacal.get_gauss_reconv_psf_galsim.
 
     Parameters:
     -----------

@@ -211,6 +211,20 @@ class DFMdetObservation:
 
 
 def ngmix_obs_to_dfmd_obs(obs: ngmix.observation.Observation) -> DFMdetObservation:
+    """Convert an ngmix Observation to a DFMdetObservation.
+    Note that unlike the non-jax version, PSF is no longer an instance of
+    observation and default values of bmask, ormask, mfrac are arrays of zeros.
+
+    Parameters
+    ----------
+    obs: ngmix.observation.Observation
+        The ngmix observation object to convert.
+
+    Returns
+    -------
+    DFMdetObservation
+        The converted DFMdetObservation with JAX arrays.
+    """
     jacobian = obs.get_jacobian()
 
     psf = None
@@ -258,7 +272,19 @@ def ngmix_obs_to_dfmd_obs(obs: ngmix.observation.Observation) -> DFMdetObservati
     )
 
 
-def dfmd_psf_to_ngmix_obs(dfmd_psf) -> Observation:
+def dfmd_psf_to_ngmix_obs(dfmd_psf: DFMdetPSF) -> Observation:
+    """Convert a DFMdetPSF to an ngmix Observation.
+
+    Parameters
+    ----------
+    dfmd_psf: DFMdetPSF
+        The Deep Field Metadetect PSF object to convert.
+
+    Returns
+    -------
+    ngmix.observation.Observation
+        The converted ngmix observation representing the PSF.
+    """
     psf = Observation(
         image=np.array(dfmd_psf.image),
         jacobian=ngmix.jacobian.Jacobian(
@@ -276,9 +302,27 @@ def dfmd_psf_to_ngmix_obs(dfmd_psf) -> Observation:
     return psf
 
 
-def dfmd_obs_to_ngmix_obs(dfmd_obs) -> Observation:
+def dfmd_obs_to_ngmix_obs(dfmd_obs: DFMdetObservation) -> Observation:
+    """Convert a DFMdetObservation to an ngmix Observation.
+
+    This function transforms a JAX-compatible DFMdetObservation object into
+    a standard ngmix Observation object, converting all JAX arrays to numpy
+    arrays and transforming the JAX-galsim WCS to an ngmix Jacobian.
+    Note: This function never passes None values for the following:
+    bmask, ormask, mfrac, instead sets default arrays of zeros.
+
+    Parameters
+    ----------
+    dfmd_obs: DFMdetObservation
+        The Deep Field Metadetect observation object to convert.
+
+    Returns
+    -------
+    ngmix.observation.Observation
+        The converted ngmix observation with numpy arrays and ngmix Jacobian.
+    """
     psf = None
-    if dfmd_obs.psf is not None:
+    if dfmd_obs.has_psf():
         psf = dfmd_psf_to_ngmix_obs(dfmd_obs.psf)
 
     bmask = np.array(dfmd_obs.bmask)

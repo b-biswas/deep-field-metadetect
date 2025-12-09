@@ -59,7 +59,7 @@ def jax_get_gauss_reconv_psf_galsim(
 
     This is taken from galsim/tests/test_metacal.py and assumes the psf is
     centered.
-    Note: Order of paramter differs from the corresponding non-jax versions
+    Note: Order of parameters differs from the corresponding non-jax versions
 
     Parameters
     ----------
@@ -70,8 +70,8 @@ def jax_get_gauss_reconv_psf_galsim(
     nxy_psf : int, optional
         The size of the PSF image in pixels (default is 53).
     step : float, optional
-        Factor by which to expand the PSF to supress noise from high-k
-        fourirer modes introduced due to shearing of pre-PSF images.
+        Factor by which to expand the PSF to suppress noise from high-k
+        fourier modes introduced due to shearing of pre-PSF images.
         Defaults to deep_field_metadetect.metacal.DEFAULT_STEP.
     flux : float, optional
         The total flux of the output PSF (default is 1).
@@ -88,8 +88,8 @@ def jax_get_gauss_reconv_psf_galsim(
     smaller_kval = 3.0e-3  # Target PSF will have this kvalue at the same k
 
     """
-    The dk and kim_size is set for jitting purposes.
-    This will lead to a differnce in reconv psf size between GS and JGS
+    The dk and kim_size are set for jitting purposes.
+    This will lead to a difference in reconv PSF size between GS and JGS
     if similar settings are not used."""
     if kim_size is None:
         kim = psf.drawKImage(nx=4 * nxy_psf, ny=4 * nxy_psf, scale=dk)
@@ -125,8 +125,8 @@ def jax_get_gauss_reconv_psf(dfmd_obs, nxy_psf, dk, step=DEFAULT_STEP):
     dk : float
         Fourier-space pixel scale.
     step : float, optional
-        Factor by which to expand the PSF to supress noise from high-k
-        fourirer modes introduced due to shearing of pre-PSF images.
+        Factor by which to expand the PSF to suppress noise from high-k
+        fourier modes introduced due to shearing of pre-PSF images.
         Defaults to DEFAULT_STEP.
 
     Returns
@@ -677,7 +677,7 @@ def _jax_helper_metacal_wide_and_deep_psf_matched(
     -------
     mcal_res : dict
         Output from metacal_op_shears for shear cases listed by the shears input,
-        optionaly no shear deep field case if return_noshear_deep is True
+        optionally no shear deep field case if return_noshear_deep is True
         and kinfo for debugging if return_k_info is set to True.
         kinfo is returned in the following order:
         _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.
@@ -828,7 +828,7 @@ def jax_metacal_wide_and_deep_psf_matched(
     -------
     mcal_res : dict
         Output from metacal_op_shears for shear cases listed by the shears input,
-        optionaly no shear deep field case if return_noshear_deep is True
+        optionally no shear deep field case if return_noshear_deep is True
         and kinfo for debugging if return_k_info is set to True.
         kinfo is returned in the following order:
         _force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf.

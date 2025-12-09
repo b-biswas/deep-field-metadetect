@@ -71,8 +71,8 @@ def jax_single_band_deep_field_metadetect(
         The deep-field metadetection results as a structured array containing
         detection and measurement results for all shears.
 
-    Note: is return_k_info is set to True for debugging,
-    This function returns a dict containing dfmdet_res and kinfo. kinfo being:
+    Note: If return_k_info is set to True for debugging,
+    this function returns a dict containing dfmdet_res and kinfo. kinfo being:
     (_force_stepk_field, _force_maxk_field, _force_stepk_psf, _force_maxk_psf)
     """
     if shears is None:
