@@ -467,9 +467,32 @@ def jax_add_dfmd_psf(psf1, psf2):
 def jax_add_dfmd_obs(
     dfmd_obs1, dfmd_obs2, ignore_psf=False, skip_mfrac_for_second=False
 ) -> DFMdetObservation:
-    """Add two dfmd observations"""
+    """Add two DFMD observations.
+
+    Parameters
+    ----------
+    dfmd_obs1 : DFMdetObservation
+        The first observation to add.
+    dfmd_obs2 : DFMdetObservation
+        The second observation to add.
+    ignore_psf : bool, optional
+        If True, the output PSF will be set to zero instead of combining
+        the input PSFs. Default is False.
+    skip_mfrac_for_second : bool, optional
+        If True, only use the mfrac from the first observation instead of
+        averaging both. Default is False.
+
+    Returns
+    -------
+    DFMdetObservation
+        A new observation containing the combined data from both inputs.
+        The image is the sum of input images, weights are combined using
+        inverse variance weighting, and masks are combined using bitwise OR,
+        and noise is summed.
+    """
 
     if repr(dfmd_obs1.wcs) != repr(dfmd_obs2.wcs):
+        # This if statement will not perform any action at runtime
         raise RuntimeError(
             "AffineTransforms must be equal to add dfmd observations! %s != %s"
             % (repr(dfmd_obs1.wcs), repr(dfmd_obs2.wcs)),
@@ -515,6 +538,8 @@ def jax_add_dfmd_obs(
     new_meta_data = {}
 
     # Handle bmask, ormask, noise, and mfrac
+    # Unlike the non-jax version we do not need to test conditions here
+    # because now the default values are zeros instead of None
     new_bmask = dfmd_obs1.bmask | dfmd_obs2.bmask
     new_ormask = dfmd_obs1.ormask | dfmd_obs2.ormask
     new_noise = dfmd_obs1.noise + dfmd_obs2.noise
