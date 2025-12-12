@@ -31,31 +31,13 @@ def local_maxima_filter(
     """
     noise_array = jnp.broadcast_to(noise, image.shape) if jnp.isscalar(noise) else noise
 
-    pad_size = window_size // 2
-    padded_image = jnp.pad(image, pad_size, mode="constant", constant_values=-jnp.inf)
-
-    def is_local_max(i, j):
-        center_val = padded_image[i + pad_size, j + pad_size]
-        threshold = 3 * noise_array[i, j]  # noise is not padded
-
-        neighborhood = jax.lax.dynamic_slice(
-            padded_image, (i, j), (window_size, window_size)
-        )
-
-        return (jnp.all(center_val >= neighborhood)) & (threshold < center_val)
-
-    height, width = image.shape
-    i_indices, j_indices = jnp.meshgrid(
-        jnp.arange(height), jnp.arange(width), indexing="ij"
+    # Use max pooling: check if pixel val == max pooled value for peak detection
+    max_pooled = jax.lax.reduce_window(
+        image, -jnp.inf, jax.lax.max, (window_size, window_size), (1, 1), "SAME"
     )
 
-    local_max_mask = jax.vmap(
-        jax.vmap(
-            is_local_max,
-            in_axes=(0, 0),
-        ),
-        in_axes=(0, 0),
-    )(i_indices, j_indices)
+    threshold_mask = image > 3 * noise_array
+    local_max_mask = (image == max_pooled) & threshold_mask
 
     return local_max_mask
 
