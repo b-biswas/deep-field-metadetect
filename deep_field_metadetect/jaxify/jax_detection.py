@@ -402,7 +402,7 @@ def watershed_from_peaks(
     markers = jnp.zeros((height, width), dtype=jnp.int32)
 
     # Place markers at peak positions
-    def place_marker(i, peak_pos):
+    def place_marker(markers, i, peak_pos):
         y, x = peak_pos.astype(jnp.int32)
         is_valid = (y >= 0) & (y < height) & (x >= 0) & (x < width)
 
@@ -413,8 +413,11 @@ def watershed_from_peaks(
         )
 
     # Sequential marker placement
-    for i in range(peaks.shape[0]):
-        markers = place_marker(i, peaks[i])
+    def scan_fn(markers_current, i_peak):
+        i, peak = i_peak
+        return place_marker(markers_current, i, peak), None
+
+    markers, _ = jax.lax.scan(scan_fn, markers, (jnp.arange(peaks.shape[0]), peaks))
 
     # Apply watershed algorithm
     watershed_labels = watershed_segmentation(
