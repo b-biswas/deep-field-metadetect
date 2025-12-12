@@ -267,7 +267,6 @@ def watershed_segmentation(
 
         def update_pixel(i, j):
             # Skip if masked out
-            # Note: another option here would be skip if already labeled
             current_label = labels_prev[i, j]
             is_valid = ~mask[i, j]
 
