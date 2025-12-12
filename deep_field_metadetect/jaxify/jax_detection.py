@@ -68,7 +68,7 @@ def peak_finder(
     --------
     positions : jnp.ndarray
         Array of peak coordinates (y, x) of shape (max_objects, 2)
-        Invalid entries filled with (-999, -999)
+        Invalid entries filled with (-1, -1)
     """
     local_max_mask = local_maxima_filter(
         image=image,
@@ -76,7 +76,7 @@ def peak_finder(
         window_size=window_size,
     )
 
-    positions = jnp.argwhere(local_max_mask, size=max_objects, fill_value=(-999, -999))
+    positions = jnp.argwhere(local_max_mask, size=max_objects, fill_value=(-1, -1))
 
     return positions
 
@@ -194,7 +194,7 @@ def detect_galaxies(
     peak_positions : jnp.ndarray
         Array of detected galaxy centers (y, x) of shape (max_objects, 2).
         Returns only the integral pixel location.
-        Invalid entries filled with -999
+        Invalid entries filled with -1
     refined_positions : jnp.ndarray
         Array of detected galaxy centers (y, x) after centroid refinement.
         Returns the refined floating point values of the center.
