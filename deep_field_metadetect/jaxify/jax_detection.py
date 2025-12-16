@@ -214,7 +214,8 @@ def detect_galaxies(
 
     refined_positions, border_flags = refine_centroid_in_cell(
         image, peak_positions, window_size=5
-    )
+    )  # Using only a single iteration for now.
+    # Multiple iter not tested, but can lead to unstability for blended objects
 
     return peak_positions, refined_positions, border_flags
 
@@ -253,8 +254,7 @@ def watershed_segmentation(
     """
     noise_array = (
         jnp.broadcast_to(noise, inverted_image.shape) if jnp.isscalar(noise) else noise
-    )
-
+    )  # pythonic if else works: JIT-compilation will be triggered if shape changes
     if mask is None:
         mask = jnp.zeros_like(inverted_image, dtype=bool)
 
