@@ -661,20 +661,24 @@ def jax_make_mb_coadd_from_list(obs_list):
     coadd_noise = jnp.zeros_like(first_obs.image)
     mask = jnp.zeros(coadd_im.shape, dtype=jnp.int32)
     total_weight = jnp.zeros_like(first_obs.image)
+    final_var_map = jnp.zeros_like(first_obs.image)
 
     for obs in obs_list:
-        coadd_im = coadd_im + obs.image * obs.weight
-        coadd_noise = coadd_noise + obs.noise * obs.weight
         total_weight = total_weight + obs.weight
+
+    for obs in obs_list:
+        w_i = jnp.median(obs.weight) / total_weight
+        coadd_im = coadd_im + obs.image * w_i
+        coadd_noise = coadd_noise + obs.noise * w_i
+        final_var_map = final_var_map + (1 / obs.weight) * w_i**2
         mask = mask | obs.bmask
 
     coadd_im = coadd_im / total_weight
     coadd_noise = coadd_noise / total_weight
-    wgt = total_weight
 
     return DFMdetObservation(
         image=coadd_im,
-        weight=wgt,
+        weight=1 / final_var_map,
         bmask=mask,
         noise=coadd_noise,
         wcs=first_obs.wcs,
