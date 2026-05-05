@@ -664,7 +664,7 @@ def jax_make_mb_coadd_from_list(obs_list):
     final_var_map = jnp.zeros_like(first_obs.image)
 
     for obs in obs_list:
-        total_weight = total_weight + obs.weight
+        total_weight = total_weight + jnp.median(obs.weight)
 
     for obs in obs_list:
         w_i = jnp.median(obs.weight) / total_weight
