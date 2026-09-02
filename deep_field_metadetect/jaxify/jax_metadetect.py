@@ -168,7 +168,7 @@ def _process_detections_for_shear(
             mfrac_vals,
             jnp.array(0.0, dtype=precision_config.MFRAC_DTYPE),
         )
-        return mfrac_vals
+        return mfrac_vals.astype(precision_config.MFRAC_DTYPE)
 
     def get_zero_mfrac():
         """Return zeros when no mfrac data."""
