@@ -5,7 +5,7 @@ import jax
 import jax.numpy as jnp
 import jax_galsim
 
-from deep_field_metadetect.jaxify import jax_dfmd_defaults
+from deep_field_metadetect.jaxify import jax_dfmd_defaults, precision_config
 from deep_field_metadetect.jaxify.observation import (
     DFMdetObservation,
 )
@@ -185,7 +185,8 @@ def _jax_render_psf_and_build_obs(
             x=dfmd_obs.psf.wcs.origin.x - (nxy_psf + 1) / 2,
             y=dfmd_obs.psf.wcs.origin.y - (nxy_psf + 1) / 2,
         ),
-    ).array.astype(jnp.float_)
+        dtype=precision_config.PSF_DTYPE,
+    ).array
 
     obs_psf = dfmd_obs.psf.replace(image=pim)
     return dfmd_obs.replace(
@@ -229,14 +230,18 @@ def _jax_metacal_op_g1g2_impl(
         minimum_fft_size=image_fft_size,
         maximum_fft_size=image_fft_size,
     )
-    ims = ims.drawImage(nx=dims[1], ny=dims[0], wcs=wcs).array.astype(jnp.float_)
+    ims = ims.drawImage(
+        nx=dims[1], ny=dims[0], wcs=wcs, dtype=precision_config.IMAGE_DTYPE
+    ).array
 
     ns = ns.withGSParams(
         minimum_fft_size=image_fft_size,
         maximum_fft_size=image_fft_size,
     )
     ns = jnp.rot90(
-        ns.drawImage(nx=dims[1], ny=dims[0], wcs=wcs).array.astype(jnp.float_),
+        ns.drawImage(
+            nx=dims[1], ny=dims[0], wcs=wcs, dtype=precision_config.IMAGE_DTYPE
+        ).array,
         k=-1,
     )
     return ims + ns
@@ -466,7 +471,9 @@ def jax_match_psf(
         minimum_fft_size=image_fft_size,
         maximum_fft_size=image_fft_size,
     )
-    ims = ims.drawImage(nx=nxy, ny=nxy, wcs=wcs).array.astype(jnp.float_)
+    ims = ims.drawImage(
+        nx=nxy, ny=nxy, wcs=wcs, dtype=precision_config.IMAGE_DTYPE
+    ).array
 
     if return_k_info:
         return _jax_render_psf_and_build_obs(
