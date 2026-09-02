@@ -737,22 +737,33 @@ def test_metacal_wide_and_deep_psf_matched_jax_vs_ngmix_float64():
 
         image_diff = np.abs(ngmix_obs.image - jax_obs.image)
         max_image_diff = np.max(image_diff)
-        print(f" Image - max diff: {max_image_diff:.2e}")
+        max_image = np.max(np.abs(ngmix_obs.image))
+        rel_image_diff = max_image_diff / max_image if max_image > 0 else 0
+        print(f"  Image max diff: {max_image_diff:.2e}, relative: {rel_image_diff:.2e}")
 
         psf_diff = np.abs(ngmix_obs.psf.image - jax_obs.psf.image)
         max_psf_diff = np.max(psf_diff)
-        print(f"  PSF - max diff: {max_psf_diff:.2e}")
+        max_psf = np.max(np.abs(ngmix_obs.psf.image))
+        rel_psf_diff = max_psf_diff / max_psf if max_psf > 0 else 0
+        print(f"  PSF max diff: {max_psf_diff:.2e}, relative: {rel_psf_diff:.2e}")
 
         weight_diff = np.abs(ngmix_obs.weight - jax_obs.weight)
         max_weight_diff = np.max(weight_diff)
-        print(f"  Weight - max diff: {max_weight_diff:.2e}")
+        max_weight = np.max(ngmix_obs.weight)
+        rel_weight_diff = max_weight_diff / max_weight if max_weight > 0 else 0
+        print(
+            f"  Weight max diff: {max_weight_diff:.2e}, relative: {rel_weight_diff:.2e}"
+        )
 
+        # NOTE: the comparison is not 100% accurate because some galsim sims are in
+        # float32 but here everything is forced in float64.
+        # i.e., JAX float64 version is more precise.
         assert np.allclose(ngmix_obs.image, jax_obs.image, rtol=1e-7, atol=1e-7), (
             f"Images differ significantly for {shear}: max_diff={max_image_diff:.2e}"
         )
 
         assert np.allclose(
-            ngmix_obs.psf.image, jax_obs.psf.image, rtol=1e-9, atol=1e-9
+            ngmix_obs.psf.image, jax_obs.psf.image, rtol=1e-8, atol=1e-8
         ), f"PSF images differ significantly for {shear}: max_diff={max_psf_diff:.2e}"
 
         assert np.array_equal(ngmix_obs.weight, jax_obs.weight), (
@@ -767,14 +778,18 @@ def test_metacal_wide_and_deep_psf_matched_jax_vs_ngmix_float64():
 
         if ngmix_obs.has_noise() and jax_obs.has_noise():
             noise_diff = np.max(np.abs(ngmix_obs.noise - jax_obs.noise))
-            print(f"  Noise - max diff: {noise_diff:.2e}")
+            max_noise = np.max(np.abs(ngmix_obs.noise))
+            rel_noise_diff = noise_diff / max_noise if max_noise > 0 else 0
+            print(f"  Noise max diff: {noise_diff:.2e}, relative: {rel_noise_diff:.2e}")
             assert np.allclose(
                 ngmix_obs.noise, jax_obs.noise, rtol=1e-10, atol=1e-12
             ), f"Noise differs significantly for {shear}: max_diff={noise_diff:.2e}"
 
         if ngmix_obs.has_mfrac() and jax_obs.has_mfrac():
             mfrac_diff = np.max(np.abs(ngmix_obs.mfrac - jax_obs.mfrac))
-            print(f"  Mfrac - max diff: {mfrac_diff:.2e}")
+            max_mfrac = np.max(np.abs(ngmix_obs.mfrac))
+            rel_mfrac_diff = mfrac_diff / max_mfrac if max_mfrac > 0 else 0
+            print(f"  Mfrac max diff: {mfrac_diff:.2e}, relative: {rel_mfrac_diff:.2e}")
             assert np.allclose(
                 ngmix_obs.mfrac, jax_obs.mfrac, rtol=1e-10, atol=1e-12
             ), f"Mfrac differs significantly for {shear}: max_diff={mfrac_diff:.2e}"
