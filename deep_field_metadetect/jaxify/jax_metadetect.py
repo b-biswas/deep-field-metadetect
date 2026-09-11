@@ -889,36 +889,88 @@ def jax_multi_band_deep_field_metadetect_jitted(
 
     # shear images for each band
     # Only process bands that will be used for measurements (detband_indices)
+    # Vmap over bands for parallel metacalibration computation
+
+    # Stack observations from all bands
+    obs_wide_stacked = jax.tree_util.tree_map(
+        lambda *obs: jnp.stack(obs, axis=0),
+        *[mb_obs_wide[band_idx][0] for band_idx in detband_indices],
+    )
+    obs_deep_stacked = jax.tree_util.tree_map(
+        lambda *obs: jnp.stack(obs, axis=0),
+        *[mb_obs_deep[band_idx][0] for band_idx in detband_indices],
+    )
+    obs_deep_noise_stacked = jax.tree_util.tree_map(
+        lambda *obs: jnp.stack(obs, axis=0),
+        *[mb_obs_deep_noise[band_idx][0] for band_idx in detband_indices],
+    )
+
+    # Create vmapped metacal function
+    # vmap over observations (first 3 args), all other args are static (None)
+    vmapped_metacal = jax.vmap(
+        jax_metacal_wide_and_deep_psf_matched,
+        in_axes=(
+            0,
+            0,
+            0,  # obs_wide, obs_deep, obs_deep_noise (vmapped)
+            None,
+            None,  # nxy, nxy_psf (static)
+            None,
+            None,  # shears, step (static)
+            None,
+            None,  # skip_obs_wide_corrections, skip_obs_deep_corrections (static)
+            None,  # return_noshear_deep (static)
+            None,  # return_k_info (static)
+            None,
+            None,  # force_stepk_field, force_maxk_field (static)
+            None,
+            None,  # force_stepk_psf, force_maxk_psf (static)
+            None,
+            None,  # psf_fft_size, image_fft_size (static)
+            None,
+            None,
+        ),  # reconv_psf_dk, reconv_psf_kim_size (static)
+    )
+
+    # Call vmapped metacal (note: shears comes before step in function signature)
+    mcal_results = vmapped_metacal(
+        obs_wide_stacked,
+        obs_deep_stacked,
+        obs_deep_noise_stacked,
+        nxy,
+        nxy_psf,
+        shears,
+        step,  # Fixed order: shears, then step
+        skip_obs_wide_corrections,
+        skip_obs_deep_corrections,
+        False,  # return_noshear_deep (not used in this context)
+        return_k_info,
+        force_stepk_field,
+        force_maxk_field,
+        force_stepk_psf,
+        force_maxk_psf,
+        psf_fft_size,
+        image_fft_size,
+        reconv_psf_dk,
+        reconv_psf_kim_size,
+    )
+
+    # Unpack results into dictionaries
     mcal_res_dict = {}
     kinfo_dict = {}
-    # TODO: vmap this?
-    for band_idx in detband_indices:
-        mcal_res = jax_metacal_wide_and_deep_psf_matched(
-            obs_wide=mb_obs_wide[band_idx][0],
-            obs_deep=mb_obs_deep[band_idx][0],
-            obs_deep_noise=mb_obs_deep_noise[band_idx][0],
-            nxy=nxy,
-            nxy_psf=nxy_psf,
-            step=step,
-            shears=shears,
-            skip_obs_wide_corrections=skip_obs_wide_corrections,
-            skip_obs_deep_corrections=skip_obs_deep_corrections,
-            return_k_info=return_k_info,
-            force_stepk_field=force_stepk_field,
-            force_maxk_field=force_maxk_field,
-            force_stepk_psf=force_stepk_psf,
-            force_maxk_psf=force_maxk_psf,
-            psf_fft_size=psf_fft_size,
-            image_fft_size=image_fft_size,
-            reconv_psf_dk=reconv_psf_dk,
-            reconv_psf_kim_size=reconv_psf_kim_size,
-        )
-
-        if return_k_info:
-            mcal_res, kinfo_band = mcal_res
-            kinfo_dict[band_idx] = kinfo_band
-
-        mcal_res_dict[band_idx] = mcal_res
+    if return_k_info:
+        # mcal_results is a tuple of (mcal_res_array, kinfo_array)
+        mcal_res_array, kinfo_array = mcal_results
+        for i, band_idx in enumerate(detband_indices):
+            mcal_res_dict[band_idx] = jax.tree_util.tree_map(
+                lambda x: x[i], mcal_res_array
+            )
+            kinfo_dict[band_idx] = kinfo_array[i]  # kinfo is already a tuple of scalars
+    else:
+        for i, band_idx in enumerate(detband_indices):
+            mcal_res_dict[band_idx] = jax.tree_util.tree_map(
+                lambda x: x[i], mcal_results
+            )
 
     # Compute PSF results (for each band in detband_indices)
     psf_res_dict = {}
