@@ -623,10 +623,15 @@ def get_jax_galsim_object_from_dfmd_obs(
     force_maxk=0.0,
 ):
     """Make an interpolated image from an dfmd obs."""
+    # Get the data and preserve its dtype for mixed precision support
+    data = getattr(dfmd_obs, kind)
+    dtype = data.dtype
+
     return jax_galsim.InterpolatedImage(
-        jax_galsim.ImageD(
-            jnp.rot90(getattr(dfmd_obs, kind).copy(), k=rot90),
+        jax_galsim.Image(
+            jnp.rot90(data.copy(), k=rot90),
             wcs=dfmd_obs.wcs.local(),
+            dtype=dtype,
         ),
         x_interpolant="lanczos15",
         _force_stepk=force_stepk,
